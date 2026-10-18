@@ -42,11 +42,12 @@ cd xianyu-auto-go
 curl -fsSLO https://raw.githubusercontent.com/Heartestrella/xianyu-auto-reply-golang/main/docker-compose.yml
 ```
 
-生成随机 JWT 密钥并保存在仅本机可读的 `.env` 文件：
+程序首次启动时会在持久化数据目录生成随机 JWT 密钥，并保存为 `data/.jwt_secret`；后续重启会复用它，因此不需要手动生成。请确保 `data/` 挂载卷不会被删除，并将该文件视为敏感凭据。也可以通过环境变量显式覆盖：
 
 ```bash
-umask 077
-printf 'JWT_SECRET=%s\nPORT=9000\n' "$(openssl rand -hex 32)" > .env
+printf 'PORT=9000\n' > .env
+# 可选：只有需要外部统一管理密钥时才设置 JWT_SECRET
+# printf 'JWT_SECRET=%s\n' "$(openssl rand -hex 32)" >> .env
 ```
 
 公开镜像无需登录 GHCR。若镜像是私有的，使用有 `read:packages` 权限的 GitHub Token 登录（将 Token 保存在服务器环境或密钥管理器中，不要写入 `.env` 或 shell 历史）：
@@ -101,4 +102,4 @@ go test ./...
 go run ./cmd/server
 ```
 
-默认监听 `:8089`。可通过 `LISTEN_ADDR`、`DATA_DIR`、`STATIC_DIR` 和 `JWT_SECRET` 配置；对外部署时不要使用默认 JWT 密钥。
+默认监听 `:8089`。可通过 `LISTEN_ADDR`、`DATA_DIR`、`STATIC_DIR` 和 `JWT_SECRET` 配置。未设置 `JWT_SECRET` 时程序会自动生成并持久化随机密钥；不要删除 `data/.jwt_secret`，否则所有现有登录令牌会失效。

@@ -5,7 +5,8 @@ services:
     restart: unless-stopped
     environment:
       TZ: Asia/Shanghai
-      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env before starting}
+      # If omitted, the application creates and persists a random key in /app/data/.jwt_secret.
+      JWT_SECRET: ${JWT_SECRET:-}
     ports:
       - "${PORT:-9000}:8089"
     volumes:
