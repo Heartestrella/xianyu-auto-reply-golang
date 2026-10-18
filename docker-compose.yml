@@ -1,0 +1,17 @@
+services:
+  xianyu:
+    build: .
+    container_name: xianyu-go
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      JWT_SECRET: ${JWT_SECRET:-please-change-this-secret}
+    ports:
+      - "${PORT:-9000}:8089"
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8089/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

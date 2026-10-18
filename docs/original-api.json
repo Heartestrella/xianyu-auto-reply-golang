@@ -1,0 +1,2804 @@
+[
+  {
+    "module": "account_login_logs",
+    "method": "GET",
+    "path": "/api/v1/account-login-logs",
+    "handler": "list_account_login_logs"
+  },
+  {
+    "module": "activation",
+    "method": "POST",
+    "path": "/api/v1/activation/generate",
+    "handler": "generate_trial_activation"
+  },
+  {
+    "module": "activation",
+    "method": "POST",
+    "path": "/api/v1/activation/renew",
+    "handler": "generate_renew_activation"
+  },
+  {
+    "module": "activation",
+    "method": "POST",
+    "path": "/api/v1/activation/history",
+    "handler": "get_activation_history"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/v1/admin/users",
+    "handler": "list_users"
+  },
+  {
+    "module": "admin",
+    "method": "POST",
+    "path": "/api/v1/admin/users",
+    "handler": "create_user"
+  },
+  {
+    "module": "admin",
+    "method": "PUT",
+    "path": "/api/v1/admin/users/{user_id}",
+    "handler": "update_user"
+  },
+  {
+    "module": "admin",
+    "method": "POST",
+    "path": "/api/v1/admin/users/{user_id}/recharge",
+    "handler": "recharge_user"
+  },
+  {
+    "module": "admin",
+    "method": "DELETE",
+    "path": "/api/v1/admin/users/{user_id}",
+    "handler": "delete_user"
+  },
+  {
+    "module": "admin",
+    "method": "DELETE",
+    "path": "/api/v1/admin/risk-control-logs",
+    "handler": "clear_risk_logs"
+  },
+  {
+    "module": "admin",
+    "method": "DELETE",
+    "path": "/api/v1/admin/account-login-logs",
+    "handler": "clear_account_login_logs"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/v1/admin/data/{table_name}",
+    "handler": "get_table_data"
+  },
+  {
+    "module": "admin",
+    "method": "DELETE",
+    "path": "/api/v1/admin/data/{table_name}",
+    "handler": "clear_table_placeholder"
+  },
+  {
+    "module": "admin",
+    "method": "DELETE",
+    "path": "/api/v1/admin/data/{table_name}/{record_id}",
+    "handler": "delete_table_record_placeholder"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/v1/admin/logs",
+    "handler": "get_system_logs"
+  },
+  {
+    "module": "admin",
+    "method": "POST",
+    "path": "/api/v1/admin/logs/clear",
+    "handler": "clear_system_logs"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/v1/admin/logs/export",
+    "handler": "export_log_file"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/v1/admin/stats",
+    "handler": "get_system_stats"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/v1/admin/stats/today",
+    "handler": "get_today_stats"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/v1/admin/log-files",
+    "handler": "get_log_files"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/v1/admin/backup/list",
+    "handler": "list_backup_files"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/v1/admin/backup/download",
+    "handler": "download_database_backup"
+  },
+  {
+    "module": "admin",
+    "method": "POST",
+    "path": "/api/v1/admin/backup/upload",
+    "handler": "upload_database_backup"
+  },
+  {
+    "module": "admin",
+    "method": "POST",
+    "path": "/api/v1/admin/reload-cache",
+    "handler": "reload_system_cache"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/v1/admin/redelivery-batches",
+    "handler": "list_redelivery_batches"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/v1/admin/redelivery-batches/{batch_id}",
+    "handler": "get_redelivery_batch_detail"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/v1/admin/rate-batches",
+    "handler": "list_rate_batches"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/v1/admin/rate-batches/{batch_id}",
+    "handler": "get_rate_batch_detail"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/v1/admin/scheduled-tasks",
+    "handler": "list_scheduled_tasks"
+  },
+  {
+    "module": "admin",
+    "method": "PUT",
+    "path": "/api/v1/admin/scheduled-tasks/{task_code}",
+    "handler": "update_scheduled_task"
+  },
+  {
+    "module": "admin",
+    "method": "POST",
+    "path": "/api/v1/admin/scheduled-tasks/{task_code}/trigger",
+    "handler": "trigger_scheduled_task"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/v1/admin/polish-batches",
+    "handler": "list_polish_batches"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/v1/admin/polish-batches/{batch_id}",
+    "handler": "get_polish_batch_detail"
+  },
+  {
+    "module": "admin",
+    "method": "DELETE",
+    "path": "/api/v1/admin/redelivery-logs/clear",
+    "handler": "clear_redelivery_logs"
+  },
+  {
+    "module": "admin",
+    "method": "DELETE",
+    "path": "/api/v1/admin/rate-logs/clear",
+    "handler": "clear_rate_logs"
+  },
+  {
+    "module": "admin",
+    "method": "DELETE",
+    "path": "/api/v1/admin/polish-logs/clear",
+    "handler": "clear_polish_logs"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/v1/admin/red-flower-batches",
+    "handler": "list_red_flower_batches"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/v1/admin/red-flower-batches/{batch_id}",
+    "handler": "get_red_flower_batch_detail"
+  },
+  {
+    "module": "admin",
+    "method": "DELETE",
+    "path": "/api/v1/admin/red-flower-logs/clear",
+    "handler": "clear_red_flower_logs"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/v1/admin/login-renew-batches",
+    "handler": "list_login_renew_batches"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/v1/admin/login-renew-batches/{batch_id}",
+    "handler": "get_login_renew_batch_detail"
+  },
+  {
+    "module": "admin",
+    "method": "DELETE",
+    "path": "/api/v1/admin/login-renew-logs/clear",
+    "handler": "clear_login_renew_logs"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/v1/admin/close-notice-batches",
+    "handler": "list_close_notice_batches"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/v1/admin/close-notice-batches/{batch_id}",
+    "handler": "get_close_notice_batch_detail"
+  },
+  {
+    "module": "admin",
+    "method": "DELETE",
+    "path": "/api/v1/admin/close-notice-logs/clear",
+    "handler": "clear_close_notice_logs"
+  },
+  {
+    "module": "advertisements",
+    "method": "GET",
+    "path": "/api/v1/advertisements/public",
+    "handler": "get_public_ads"
+  },
+  {
+    "module": "advertisements",
+    "method": "GET",
+    "path": "/api/v1/advertisements/prices",
+    "handler": "get_ad_prices"
+  },
+  {
+    "module": "advertisements",
+    "method": "GET",
+    "path": "/api/v1/advertisements/admin",
+    "handler": "get_all_ads"
+  },
+  {
+    "module": "advertisements",
+    "method": "PUT",
+    "path": "/api/v1/advertisements/admin/{ad_id}/approve",
+    "handler": "approve_ad"
+  },
+  {
+    "module": "advertisements",
+    "method": "PUT",
+    "path": "/api/v1/advertisements/admin/{ad_id}/reject",
+    "handler": "reject_ad"
+  },
+  {
+    "module": "advertisements",
+    "method": "DELETE",
+    "path": "/api/v1/advertisements/admin/{ad_id}",
+    "handler": "delete_ad_admin"
+  },
+  {
+    "module": "advertisements",
+    "method": "PUT",
+    "path": "/api/v1/advertisements/admin/{ad_id}",
+    "handler": "update_ad_admin"
+  },
+  {
+    "module": "advertisements",
+    "method": "GET",
+    "path": "/api/v1/advertisements",
+    "handler": "get_my_ads"
+  },
+  {
+    "module": "advertisements",
+    "method": "POST",
+    "path": "/api/v1/advertisements",
+    "handler": "create_ad"
+  },
+  {
+    "module": "advertisements",
+    "method": "PUT",
+    "path": "/api/v1/advertisements/{ad_id}",
+    "handler": "update_my_ad"
+  },
+  {
+    "module": "advertisements",
+    "method": "DELETE",
+    "path": "/api/v1/advertisements/{ad_id}",
+    "handler": "delete_my_ad"
+  },
+  {
+    "module": "advertisements",
+    "method": "POST",
+    "path": "/api/v1/advertisements/{ad_id}/pay",
+    "handler": "create_ad_payment"
+  },
+  {
+    "module": "advertisements",
+    "method": "POST",
+    "path": "/api/v1/advertisements/{ad_id}/pay/notify",
+    "handler": "ad_payment_notify"
+  },
+  {
+    "module": "agree_deliver",
+    "method": "GET",
+    "path": "/api/v1/agree-deliver/pickup-url/suggestion",
+    "handler": "get_pickup_url_suggestion"
+  },
+  {
+    "module": "agree_deliver",
+    "method": "GET",
+    "path": "/api/v1/agree-deliver/{account_id}",
+    "handler": "get_agree_deliver_config"
+  },
+  {
+    "module": "agree_deliver",
+    "method": "PUT",
+    "path": "/api/v1/agree-deliver/{account_id}",
+    "handler": "update_agree_deliver_config"
+  },
+  {
+    "module": "agree_pickup",
+    "method": "GET",
+    "path": "/api/v1/agree-pickup/order",
+    "handler": "query_pickup_order"
+  },
+  {
+    "module": "agree_pickup",
+    "method": "POST",
+    "path": "/api/v1/agree-pickup/agree",
+    "handler": "agree_pickup"
+  },
+  {
+    "module": "ai",
+    "method": "GET",
+    "path": "/api/v1/ai-reply-settings",
+    "handler": "list_ai_reply_settings"
+  },
+  {
+    "module": "ai",
+    "method": "POST",
+    "path": "/api/v1/ai-reply-settings/models",
+    "handler": "fetch_ai_reply_models"
+  },
+  {
+    "module": "ai",
+    "method": "GET",
+    "path": "/api/v1/ai-reply-settings/{cookie_id}",
+    "handler": "get_ai_reply_settings"
+  },
+  {
+    "module": "ai",
+    "method": "PUT",
+    "path": "/api/v1/ai-reply-settings/{cookie_id}",
+    "handler": "update_ai_reply_settings"
+  },
+  {
+    "module": "ai",
+    "method": "PUT",
+    "path": "/api/v1/ai-reply-settings",
+    "handler": "bulk_update_ai_settings"
+  },
+  {
+    "module": "ai",
+    "method": "POST",
+    "path": "/api/v1/ai-reply-test/{cookie_id}",
+    "handler": "test_ai_reply_settings"
+  },
+  {
+    "module": "ai_listing",
+    "method": "GET",
+    "path": "/api/v1/ai-listing/configs",
+    "handler": "list_configs"
+  },
+  {
+    "module": "ai_listing",
+    "method": "POST",
+    "path": "/api/v1/ai-listing/configs",
+    "handler": "create_config"
+  },
+  {
+    "module": "ai_listing",
+    "method": "PUT",
+    "path": "/api/v1/ai-listing/configs/{config_id}",
+    "handler": "update_config"
+  },
+  {
+    "module": "ai_listing",
+    "method": "DELETE",
+    "path": "/api/v1/ai-listing/configs/{config_id}",
+    "handler": "delete_config"
+  },
+  {
+    "module": "ai_listing",
+    "method": "POST",
+    "path": "/api/v1/ai-listing/configs/models",
+    "handler": "list_provider_models"
+  },
+  {
+    "module": "ai_listing",
+    "method": "POST",
+    "path": "/api/v1/ai-listing/configs/{config_id}/test",
+    "handler": "test_config"
+  },
+  {
+    "module": "ai_listing",
+    "method": "POST",
+    "path": "/api/v1/ai-listing/tasks",
+    "handler": "create_task"
+  },
+  {
+    "module": "ai_listing",
+    "method": "GET",
+    "path": "/api/v1/ai-listing/tasks",
+    "handler": "list_tasks"
+  },
+  {
+    "module": "ai_listing",
+    "method": "GET",
+    "path": "/api/v1/ai-listing/tasks/{task_id}",
+    "handler": "get_task"
+  },
+  {
+    "module": "ai_listing",
+    "method": "POST",
+    "path": "/api/v1/ai-listing/tasks/{task_id}/cancel",
+    "handler": "cancel_task"
+  },
+  {
+    "module": "announcements",
+    "method": "GET",
+    "path": "/api/v1/announcements/public",
+    "handler": "get_public_announcements"
+  },
+  {
+    "module": "announcements",
+    "method": "GET",
+    "path": "/api/v1/announcements",
+    "handler": "get_announcements"
+  },
+  {
+    "module": "announcements",
+    "method": "POST",
+    "path": "/api/v1/announcements",
+    "handler": "create_announcement"
+  },
+  {
+    "module": "announcements",
+    "method": "PUT",
+    "path": "/api/v1/announcements/{announcement_id}",
+    "handler": "update_announcement"
+  },
+  {
+    "module": "announcements",
+    "method": "DELETE",
+    "path": "/api/v1/announcements/{announcement_id}",
+    "handler": "delete_announcement"
+  },
+  {
+    "module": "api_cookie_renew_logs",
+    "method": "GET",
+    "path": "/api/v1/admin/api-cookie-renew-batches",
+    "handler": "list_api_cookie_renew_batches"
+  },
+  {
+    "module": "api_cookie_renew_logs",
+    "method": "GET",
+    "path": "/api/v1/admin/api-cookie-renew-batches/{batch_id}",
+    "handler": "get_api_cookie_renew_batch_detail"
+  },
+  {
+    "module": "api_cookie_renew_logs",
+    "method": "DELETE",
+    "path": "/api/v1/admin/api-cookie-renew-logs/clear",
+    "handler": "clear_api_cookie_renew_logs"
+  },
+  {
+    "module": "auth",
+    "method": "POST",
+    "path": "/api/v1/auth/login",
+    "handler": "login_user"
+  },
+  {
+    "module": "auth",
+    "method": "GET",
+    "path": "/api/v1/auth/verify",
+    "handler": "verify_token"
+  },
+  {
+    "module": "auth",
+    "method": "POST",
+    "path": "/api/v1/auth/logout",
+    "handler": "logout_user"
+  },
+  {
+    "module": "auth",
+    "method": "POST",
+    "path": "/api/v1/auth/refresh",
+    "handler": "refresh_token"
+  },
+  {
+    "module": "auth",
+    "method": "GET",
+    "path": "/api/v1/auth/check-default-password",
+    "handler": "check_default_password"
+  },
+  {
+    "module": "auth",
+    "method": "POST",
+    "path": "/api/v1/auth/register",
+    "handler": "register_user"
+  },
+  {
+    "module": "auth",
+    "method": "POST",
+    "path": "/api/v1/auth/reset-password",
+    "handler": "reset_password"
+  },
+  {
+    "module": "auto_rate",
+    "method": "GET",
+    "path": "/api/v1/auto-rate/{account_id}",
+    "handler": "get_auto_rate_config"
+  },
+  {
+    "module": "auto_rate",
+    "method": "PUT",
+    "path": "/api/v1/auto-rate/{account_id}",
+    "handler": "update_auto_rate_config"
+  },
+  {
+    "module": "auto_rate",
+    "method": "POST",
+    "path": "/api/v1/auto-rate/batch-rate",
+    "handler": "batch_rate_orders"
+  },
+  {
+    "module": "auto_reply_logs",
+    "method": "GET",
+    "path": "/api/v1/auto-reply-logs",
+    "handler": "list_auto_reply_logs"
+  },
+  {
+    "module": "blacklist",
+    "method": "GET",
+    "path": "/api/v1/blacklist/personal",
+    "handler": "list_personal_blacklist"
+  },
+  {
+    "module": "blacklist",
+    "method": "POST",
+    "path": "/api/v1/blacklist/personal",
+    "handler": "create_personal_blacklist"
+  },
+  {
+    "module": "blacklist",
+    "method": "POST",
+    "path": "/api/v1/blacklist/personal/batch-delete",
+    "handler": "batch_delete_personal_blacklist"
+  },
+  {
+    "module": "blacklist",
+    "method": "GET",
+    "path": "/api/v1/blacklist/personal/export",
+    "handler": "export_personal_blacklist"
+  },
+  {
+    "module": "blacklist",
+    "method": "POST",
+    "path": "/api/v1/blacklist/personal/import",
+    "handler": "import_personal_blacklist"
+  },
+  {
+    "module": "blacklist",
+    "method": "DELETE",
+    "path": "/api/v1/blacklist/personal/{record_id}",
+    "handler": "delete_personal_blacklist"
+  },
+  {
+    "module": "blacklist",
+    "method": "PATCH",
+    "path": "/api/v1/blacklist/personal/{record_id}/toggle",
+    "handler": "toggle_personal_blacklist"
+  },
+  {
+    "module": "blacklist",
+    "method": "GET",
+    "path": "/api/v1/blacklist/platform",
+    "handler": "list_platform_blacklist"
+  },
+  {
+    "module": "captcha",
+    "method": "POST",
+    "path": "/api/v1/captcha/generate",
+    "handler": "generate_captcha"
+  },
+  {
+    "module": "captcha",
+    "method": "POST",
+    "path": "/api/v1/captcha/verify",
+    "handler": "verify_captcha"
+  },
+  {
+    "module": "captcha",
+    "method": "POST",
+    "path": "/api/v1/captcha/send-email-code",
+    "handler": "send_email_verification_code"
+  },
+  {
+    "module": "captcha",
+    "method": "POST",
+    "path": "/api/v1/captcha/verify-email-code",
+    "handler": "verify_email_code"
+  },
+  {
+    "module": "captcha",
+    "method": "POST",
+    "path": "/api/v1/captcha/slider-solve",
+    "handler": "slider_solve"
+  },
+  {
+    "module": "captcha",
+    "method": "POST",
+    "path": "/api/v1/captcha/slider-solve/test",
+    "handler": "test_remote_slider_solve"
+  },
+  {
+    "module": "captcha",
+    "method": "GET",
+    "path": "/api/v1/captcha/remote-config",
+    "handler": "get_remote_config"
+  },
+  {
+    "module": "captcha",
+    "method": "PUT",
+    "path": "/api/v1/captcha/remote-config",
+    "handler": "update_remote_config"
+  },
+  {
+    "module": "cards",
+    "method": "GET",
+    "path": "/api/v1/cards",
+    "handler": "get_cards"
+  },
+  {
+    "module": "cards",
+    "method": "GET",
+    "path": "/api/v1/cards/item/{item_id}",
+    "handler": "get_cards_by_item"
+  },
+  {
+    "module": "cards",
+    "method": "GET",
+    "path": "/api/v1/cards/selectable",
+    "handler": "get_selectable_cards"
+  },
+  {
+    "module": "cards",
+    "method": "GET",
+    "path": "/api/v1/cards/selectable/all",
+    "handler": "get_all_selectable_cards"
+  },
+  {
+    "module": "cards",
+    "method": "POST",
+    "path": "/api/v1/cards",
+    "handler": "create_card"
+  },
+  {
+    "module": "cards",
+    "method": "GET",
+    "path": "/api/v1/cards/{card_id}",
+    "handler": "get_card"
+  },
+  {
+    "module": "cards",
+    "method": "PUT",
+    "path": "/api/v1/cards/{card_id}",
+    "handler": "update_card"
+  },
+  {
+    "module": "cards",
+    "method": "DELETE",
+    "path": "/api/v1/cards/{card_id}",
+    "handler": "delete_card"
+  },
+  {
+    "module": "cards",
+    "method": "POST",
+    "path": "/api/v1/cards/upload-image",
+    "handler": "upload_card_image"
+  },
+  {
+    "module": "cards",
+    "method": "POST",
+    "path": "/api/v1/cards/batch-delete",
+    "handler": "batch_delete_cards"
+  },
+  {
+    "module": "cards",
+    "method": "GET",
+    "path": "/api/v1/cards/{card_id}/items",
+    "handler": "get_card_items"
+  },
+  {
+    "module": "cards",
+    "method": "PUT",
+    "path": "/api/v1/cards/{card_id}/items",
+    "handler": "update_card_items"
+  },
+  {
+    "module": "cards",
+    "method": "POST",
+    "path": "/api/v1/cards/batch-bind",
+    "handler": "batch_bind_cards"
+  },
+  {
+    "module": "cards",
+    "method": "POST",
+    "path": "/api/v1/cards/batch-save",
+    "handler": "batch_save_card"
+  },
+  {
+    "module": "cards",
+    "method": "DELETE",
+    "path": "/api/v1/cards/relation/{card_id}/{item_id}",
+    "handler": "delete_card_item_relation"
+  },
+  {
+    "module": "cards",
+    "method": "PUT",
+    "path": "/api/v1/cards/item/{item_id}/cards",
+    "handler": "update_item_cards"
+  },
+  {
+    "module": "cards",
+    "method": "POST",
+    "path": "/api/v1/cards/batch-clear-item-relations",
+    "handler": "batch_clear_item_relations"
+  },
+  {
+    "module": "card_dock",
+    "method": "GET",
+    "path": "/api/v1/card-dock/sources",
+    "handler": "list_card_sources"
+  },
+  {
+    "module": "card_dock",
+    "method": "GET",
+    "path": "/api/v1/card-dock/goods",
+    "handler": "list_card_goods"
+  },
+  {
+    "module": "card_dock",
+    "method": "GET",
+    "path": "/api/v1/card-dock/goods/{goods_id}",
+    "handler": "get_card_goods_detail"
+  },
+  {
+    "module": "card_dock",
+    "method": "GET",
+    "path": "/api/v1/card-dock/goods/{goods_id}/stock",
+    "handler": "get_card_goods_stock"
+  },
+  {
+    "module": "card_dock",
+    "method": "POST",
+    "path": "/api/v1/card-dock/purchase",
+    "handler": "purchase_card"
+  },
+  {
+    "module": "card_dock",
+    "method": "GET",
+    "path": "/api/v1/card-dock/purchase-url",
+    "handler": "get_card_purchase_url"
+  },
+  {
+    "module": "chat_customer_order",
+    "method": "GET",
+    "path": "/api/v1/chat-new/customer-orders/{account_id}/{buyer_id}",
+    "handler": "get_customer_orders"
+  },
+  {
+    "module": "chat_new",
+    "method": "GET",
+    "path": "/api/v1/chat-new/accounts",
+    "handler": "list_accounts"
+  },
+  {
+    "module": "chat_new",
+    "method": "GET",
+    "path": "/api/v1/chat-new/connected-accounts",
+    "handler": "list_connected_accounts"
+  },
+  {
+    "module": "chat_new",
+    "method": "POST",
+    "path": "/api/v1/chat-new/connect/{account_id}",
+    "handler": "connect_account"
+  },
+  {
+    "module": "chat_new",
+    "method": "POST",
+    "path": "/api/v1/chat-new/disconnect/{account_id}",
+    "handler": "disconnect_account"
+  },
+  {
+    "module": "chat_new",
+    "method": "GET",
+    "path": "/api/v1/chat-new/conversations/{account_id}",
+    "handler": "get_conversations"
+  },
+  {
+    "module": "chat_new",
+    "method": "GET",
+    "path": "/api/v1/chat-new/messages/{account_id}/{cid}",
+    "handler": "get_messages"
+  },
+  {
+    "module": "chat_new",
+    "method": "POST",
+    "path": "/api/v1/chat-new/send-message/{account_id}",
+    "handler": "send_message"
+  },
+  {
+    "module": "chat_new",
+    "method": "POST",
+    "path": "/api/v1/chat-new/recall-message/{account_id}",
+    "handler": "recall_message"
+  },
+  {
+    "module": "chat_new",
+    "method": "GET",
+    "path": "/api/v1/chat-new/official-blacklist/{account_id}/{cid}",
+    "handler": "query_official_blacklist"
+  },
+  {
+    "module": "chat_new",
+    "method": "POST",
+    "path": "/api/v1/chat-new/official-blacklist/{account_id}/{cid}/{action}",
+    "handler": "change_official_blacklist"
+  },
+  {
+    "module": "chat_new",
+    "method": "POST",
+    "path": "/api/v1/chat-new/avatars/{account_id}",
+    "handler": "query_avatars"
+  },
+  {
+    "module": "chat_new",
+    "method": "GET",
+    "path": "/api/v1/chat-new/account-profile/{account_id}",
+    "handler": "get_account_profile"
+  },
+  {
+    "module": "chat_new_image",
+    "method": "POST",
+    "path": "/api/v1/chat-new/send-image/{account_id}",
+    "handler": "send_image"
+  },
+  {
+    "module": "chat_quick_phrase",
+    "method": "GET",
+    "path": "/api/v1/chat-new/quick-phrases",
+    "handler": "list_quick_phrases"
+  },
+  {
+    "module": "chat_quick_phrase",
+    "method": "POST",
+    "path": "/api/v1/chat-new/quick-phrases",
+    "handler": "create_quick_phrase"
+  },
+  {
+    "module": "chat_quick_phrase",
+    "method": "PUT",
+    "path": "/api/v1/chat-new/quick-phrases/{phrase_id}",
+    "handler": "update_quick_phrase"
+  },
+  {
+    "module": "chat_quick_phrase",
+    "method": "DELETE",
+    "path": "/api/v1/chat-new/quick-phrases/{phrase_id}",
+    "handler": "delete_quick_phrase"
+  },
+  {
+    "module": "collect_fallback_account",
+    "method": "GET",
+    "path": "/api/v1/product-monitor/collect-fallback-accounts",
+    "handler": "list_collect_fallback_accounts"
+  },
+  {
+    "module": "collect_fallback_account",
+    "method": "PUT",
+    "path": "/api/v1/product-monitor/collect-fallback-accounts",
+    "handler": "upsert_collect_fallback_accounts"
+  },
+  {
+    "module": "collect_fallback_account",
+    "method": "DELETE",
+    "path": "/api/v1/product-monitor/collect-fallback-accounts",
+    "handler": "delete_collect_fallback_accounts"
+  },
+  {
+    "module": "confirm_receipt_messages",
+    "method": "GET",
+    "path": "/api/v1/confirm-receipt-messages/{account_id}",
+    "handler": "get_confirm_receipt_message"
+  },
+  {
+    "module": "confirm_receipt_messages",
+    "method": "PUT",
+    "path": "/api/v1/confirm-receipt-messages/{account_id}",
+    "handler": "update_confirm_receipt_message"
+  },
+  {
+    "module": "confirm_receipt_messages",
+    "method": "POST",
+    "path": "/api/v1/confirm-receipt-messages/{account_id}/upload-image",
+    "handler": "upload_confirm_receipt_image"
+  },
+  {
+    "module": "cookies",
+    "method": "GET",
+    "path": "/api/v1/cookies",
+    "handler": "list_cookies"
+  },
+  {
+    "module": "cookies",
+    "method": "GET",
+    "path": "/api/v1/cookies/options",
+    "handler": "list_cookie_options"
+  },
+  {
+    "module": "cookies",
+    "method": "GET",
+    "path": "/api/v1/cookies/details",
+    "handler": "list_cookie_details"
+  },
+  {
+    "module": "cookies",
+    "method": "GET",
+    "path": "/api/v1/cookies/details/paginated",
+    "handler": "list_cookie_details_paginated"
+  },
+  {
+    "module": "cookies",
+    "method": "GET",
+    "path": "/api/v1/cookies/delivery-block-rules/available",
+    "handler": "get_available_delivery_block_rules"
+  },
+  {
+    "module": "cookies",
+    "method": "POST",
+    "path": "/api/v1/cookies",
+    "handler": "create_account"
+  },
+  {
+    "module": "cookies",
+    "method": "PUT",
+    "path": "/api/v1/cookies/{account_id}",
+    "handler": "update_account_cookie"
+  },
+  {
+    "module": "cookies",
+    "method": "PUT",
+    "path": "/api/v1/cookies/{account_id}/status",
+    "handler": "update_account_status"
+  },
+  {
+    "module": "cookies",
+    "method": "PUT",
+    "path": "/api/v1/cookies/status/batch",
+    "handler": "update_accounts_status_batch"
+  },
+  {
+    "module": "cookies",
+    "method": "PUT",
+    "path": "/api/v1/cookies/close-notice/batch",
+    "handler": "close_accounts_notice_batch"
+  },
+  {
+    "module": "cookies",
+    "method": "PUT",
+    "path": "/api/v1/cookies/clear-token-cache/batch",
+    "handler": "clear_token_cache_batch"
+  },
+  {
+    "module": "cookies",
+    "method": "PUT",
+    "path": "/api/v1/cookies/{account_id}/remark",
+    "handler": "update_account_remark"
+  },
+  {
+    "module": "cookies",
+    "method": "PUT",
+    "path": "/api/v1/cookies/{account_id}/auto-confirm",
+    "handler": "update_account_auto_confirm"
+  },
+  {
+    "module": "cookies",
+    "method": "PUT",
+    "path": "/api/v1/cookies/{account_id}/pause-duration",
+    "handler": "update_account_pause_duration"
+  },
+  {
+    "module": "cookies",
+    "method": "PUT",
+    "path": "/api/v1/cookies/{account_id}/message-expire-time",
+    "handler": "update_account_message_expire_time"
+  },
+  {
+    "module": "cookies",
+    "method": "PUT",
+    "path": "/api/v1/cookies/{account_id}/reply-delay",
+    "handler": "update_account_reply_delay"
+  },
+  {
+    "module": "cookies",
+    "method": "PUT",
+    "path": "/api/v1/cookies/{account_id}/login-info",
+    "handler": "update_account_login_info"
+  },
+  {
+    "module": "cookies",
+    "method": "PUT",
+    "path": "/api/v1/cookies/{account_id}/scheduled-redelivery",
+    "handler": "update_account_scheduled_redelivery"
+  },
+  {
+    "module": "cookies",
+    "method": "PUT",
+    "path": "/api/v1/cookies/{account_id}/scheduled-rate",
+    "handler": "update_account_scheduled_rate"
+  },
+  {
+    "module": "cookies",
+    "method": "PUT",
+    "path": "/api/v1/cookies/{account_id}/auto-polish",
+    "handler": "update_account_auto_polish"
+  },
+  {
+    "module": "cookies",
+    "method": "PUT",
+    "path": "/api/v1/cookies/{account_id}/confirm-before-send",
+    "handler": "update_account_confirm_before_send"
+  },
+  {
+    "module": "cookies",
+    "method": "PUT",
+    "path": "/api/v1/cookies/{account_id}/send-before-confirm",
+    "handler": "update_account_send_before_confirm"
+  },
+  {
+    "module": "cookies",
+    "method": "PUT",
+    "path": "/api/v1/cookies/{account_id}/only-send-card",
+    "handler": "update_account_only_send_card"
+  },
+  {
+    "module": "cookies",
+    "method": "PUT",
+    "path": "/api/v1/cookies/{account_id}/auto-red-flower",
+    "handler": "update_account_auto_red_flower"
+  },
+  {
+    "module": "cookies",
+    "method": "PUT",
+    "path": "/api/v1/cookies/{account_id}/ai-reply-block-ordered-users",
+    "handler": "update_account_ai_reply_block_ordered_users"
+  },
+  {
+    "module": "cookies",
+    "method": "PUT",
+    "path": "/api/v1/cookies/{account_id}/delivery-disabled",
+    "handler": "update_account_delivery_disabled"
+  },
+  {
+    "module": "cookies",
+    "method": "GET",
+    "path": "/api/v1/cookies/{account_id}/delivery-block-rules",
+    "handler": "get_delivery_block_rules"
+  },
+  {
+    "module": "cookies",
+    "method": "PUT",
+    "path": "/api/v1/cookies/{account_id}/delivery-block-rules",
+    "handler": "update_delivery_block_rules"
+  },
+  {
+    "module": "cookies",
+    "method": "DELETE",
+    "path": "/api/v1/cookies/{account_id}",
+    "handler": "delete_account"
+  },
+  {
+    "module": "cookies",
+    "method": "GET",
+    "path": "/api/v1/cookies/stats",
+    "handler": "get_account_stats"
+  },
+  {
+    "module": "cookies",
+    "method": "GET",
+    "path": "/api/v1/cookies/stats/order-trend",
+    "handler": "get_order_amount_trend"
+  },
+  {
+    "module": "cookies",
+    "method": "POST",
+    "path": "/api/v1/cookies/export",
+    "handler": "export_accounts"
+  },
+  {
+    "module": "cookies",
+    "method": "POST",
+    "path": "/api/v1/cookies/import",
+    "handler": "import_accounts"
+  },
+  {
+    "module": "cookies",
+    "method": "POST",
+    "path": "/api/v1/cookies/renew-login",
+    "handler": "renew_account_login"
+  },
+  {
+    "module": "cookies_refresh_logs",
+    "method": "GET",
+    "path": "/api/v1/admin/cookies-refresh-batches",
+    "handler": "list_cookies_refresh_batches"
+  },
+  {
+    "module": "cookies_refresh_logs",
+    "method": "GET",
+    "path": "/api/v1/admin/cookies-refresh-batches/{batch_id}",
+    "handler": "get_cookies_refresh_batch_detail"
+  },
+  {
+    "module": "cookie_refresh",
+    "method": "GET",
+    "path": "/api/v1/cookie-refresh/cooldown/{account_id}",
+    "handler": "get_refresh_cooldown"
+  },
+  {
+    "module": "cookie_refresh",
+    "method": "POST",
+    "path": "/api/v1/cookie-refresh/cooldown/{account_id}/reset",
+    "handler": "reset_refresh_cooldown"
+  },
+  {
+    "module": "cookie_refresh",
+    "method": "POST",
+    "path": "/api/v1/cookie-refresh/trigger/{account_id}",
+    "handler": "trigger_manual_refresh"
+  },
+  {
+    "module": "data_analysis",
+    "method": "POST",
+    "path": "/api/v1/data-analysis/seller-summary",
+    "handler": "get_seller_summary"
+  },
+  {
+    "module": "data_analysis",
+    "method": "POST",
+    "path": "/api/v1/data-analysis/browse-summary",
+    "handler": "get_browse_summary"
+  },
+  {
+    "module": "db_backup_logs",
+    "method": "GET",
+    "path": "/api/v1/db-backup-logs",
+    "handler": "list_db_backup_logs"
+  },
+  {
+    "module": "db_backup_logs",
+    "method": "GET",
+    "path": "/api/v1/db-backup-logs/{log_id}/download",
+    "handler": "download_db_backup_file"
+  },
+  {
+    "module": "default_replies",
+    "method": "GET",
+    "path": "/api/v1/default-replies/{account_id}",
+    "handler": "get_default_reply"
+  },
+  {
+    "module": "default_replies",
+    "method": "PUT",
+    "path": "/api/v1/default-replies/{account_id}",
+    "handler": "update_default_reply"
+  },
+  {
+    "module": "default_replies",
+    "method": "POST",
+    "path": "/api/v1/default-replies/{account_id}/upload-image",
+    "handler": "upload_default_reply_image"
+  },
+  {
+    "module": "default_replies",
+    "method": "GET",
+    "path": "/api/v1/default-replies",
+    "handler": "get_all_default_replies"
+  },
+  {
+    "module": "default_replies",
+    "method": "DELETE",
+    "path": "/api/v1/default-replies/{account_id}",
+    "handler": "delete_default_reply"
+  },
+  {
+    "module": "default_replies",
+    "method": "POST",
+    "path": "/api/v1/default-replies/{account_id}/clear-records",
+    "handler": "clear_default_reply_records"
+  },
+  {
+    "module": "distribution",
+    "method": "GET",
+    "path": "/api/v1/distribution/supply",
+    "handler": "get_supply_cards"
+  },
+  {
+    "module": "distribution",
+    "method": "POST",
+    "path": "/api/v1/distribution/dock-records",
+    "handler": "create_dock_record"
+  },
+  {
+    "module": "distribution",
+    "method": "PUT",
+    "path": "/api/v1/distribution/dock-records/{record_id}",
+    "handler": "update_dock_record"
+  },
+  {
+    "module": "distribution",
+    "method": "PUT",
+    "path": "/api/v1/distribution/dock-records/{record_id}/owner-update",
+    "handler": "update_dock_record_by_owner"
+  },
+  {
+    "module": "distribution",
+    "method": "DELETE",
+    "path": "/api/v1/distribution/dock-records/{record_id}",
+    "handler": "delete_dock_record"
+  },
+  {
+    "module": "distribution",
+    "method": "GET",
+    "path": "/api/v1/distribution/dock-records",
+    "handler": "get_dock_records"
+  },
+  {
+    "module": "distribution",
+    "method": "GET",
+    "path": "/api/v1/distribution/dock-records/{record_id}/pickup-url",
+    "handler": "get_pickup_url"
+  },
+  {
+    "module": "distribution",
+    "method": "GET",
+    "path": "/api/v1/distribution/pickup",
+    "handler": "pickup"
+  },
+  {
+    "module": "distribution",
+    "method": "GET",
+    "path": "/api/v1/distribution/order-delivery",
+    "handler": "get_order_delivery"
+  },
+  {
+    "module": "distribution",
+    "method": "POST",
+    "path": "/api/v1/distribution/order-delivery",
+    "handler": "post_order_delivery"
+  },
+  {
+    "module": "distribution",
+    "method": "GET",
+    "path": "/api/v1/distribution/dealers",
+    "handler": "get_dealers"
+  },
+  {
+    "module": "distribution",
+    "method": "GET",
+    "path": "/api/v1/distribution/dealers/{dealer_user_id}/details",
+    "handler": "get_dealer_details"
+  },
+  {
+    "module": "distribution",
+    "method": "GET",
+    "path": "/api/v1/distribution/sub-supply",
+    "handler": "get_sub_supply_records"
+  },
+  {
+    "module": "distribution",
+    "method": "POST",
+    "path": "/api/v1/distribution/sub-dock-records",
+    "handler": "create_sub_dock_record"
+  },
+  {
+    "module": "distribution",
+    "method": "PUT",
+    "path": "/api/v1/distribution/dock-records/{record_id}/toggle-sub-dock",
+    "handler": "toggle_sub_dock"
+  },
+  {
+    "module": "distribution",
+    "method": "PUT",
+    "path": "/api/v1/distribution/dock-records/{record_id}/cascade-status",
+    "handler": "cascade_update_status"
+  },
+  {
+    "module": "distribution",
+    "method": "GET",
+    "path": "/api/v1/distribution/sub-dealers",
+    "handler": "get_sub_dealers"
+  },
+  {
+    "module": "distribution",
+    "method": "PUT",
+    "path": "/api/v1/distribution/sub-dealers/{record_id}/disable",
+    "handler": "disable_sub_dealer"
+  },
+  {
+    "module": "distribution",
+    "method": "PUT",
+    "path": "/api/v1/distribution/sub-dealers/{record_id}/enable",
+    "handler": "enable_sub_dealer"
+  },
+  {
+    "module": "distribution",
+    "method": "GET",
+    "path": "/api/v1/distribution/sub-dealers/{dealer_user_id}/details",
+    "handler": "get_sub_dealer_details"
+  },
+  {
+    "module": "distribution",
+    "method": "GET",
+    "path": "/api/v1/distribution/fund-flows",
+    "handler": "get_fund_flows"
+  },
+  {
+    "module": "distribution",
+    "method": "GET",
+    "path": "/api/v1/distribution/source-bindings",
+    "handler": "get_source_bindings"
+  },
+  {
+    "module": "distribution",
+    "method": "POST",
+    "path": "/api/v1/distribution/source-bindings",
+    "handler": "bind_dock_code"
+  },
+  {
+    "module": "distribution",
+    "method": "DELETE",
+    "path": "/api/v1/distribution/source-bindings/{binding_id}",
+    "handler": "unbind_dock_code"
+  },
+  {
+    "module": "distribution",
+    "method": "GET",
+    "path": "/api/v1/distribution/bound-to-me",
+    "handler": "get_bound_to_me"
+  },
+  {
+    "module": "distribution",
+    "method": "GET",
+    "path": "/api/v1/distribution/agent-orders/my",
+    "handler": "get_my_agent_orders"
+  },
+  {
+    "module": "distribution",
+    "method": "GET",
+    "path": "/api/v1/distribution/agent-orders/upstream",
+    "handler": "get_upstream_agent_orders"
+  },
+  {
+    "module": "distribution",
+    "method": "GET",
+    "path": "/api/v1/distribution/agent-orders/detail/{order_id}",
+    "handler": "get_agent_order_detail"
+  },
+  {
+    "module": "distribution",
+    "method": "DELETE",
+    "path": "/api/v1/distribution/bound-to-me/{binding_id}",
+    "handler": "remove_bound_user"
+  },
+  {
+    "module": "external_accounts",
+    "method": "POST",
+    "path": "/api/v1/external/enabled-accounts",
+    "handler": "list_enabled_accounts"
+  },
+  {
+    "module": "external_accounts",
+    "method": "POST",
+    "path": "/api/v1/external/enabled-accounts/capability",
+    "handler": "get_account_capability"
+  },
+  {
+    "module": "external_category",
+    "method": "POST",
+    "path": "/api/v1/external/category/recommend",
+    "handler": "recommend_external_category"
+  },
+  {
+    "module": "external_category",
+    "method": "POST",
+    "path": "/api/v1/external/category/properties",
+    "handler": "get_external_category_properties"
+  },
+  {
+    "module": "external_cookie",
+    "method": "POST",
+    "path": "/api/v1/external/account-cookie/sync",
+    "handler": "sync_account_cookie"
+  },
+  {
+    "module": "external_message_logs",
+    "method": "POST",
+    "path": "/api/v1/external/message-logs",
+    "handler": "list_external_message_logs"
+  },
+  {
+    "module": "external_message_logs",
+    "method": "GET",
+    "path": "/api/v1/external/message-logs",
+    "handler": "get_external_message_logs"
+  },
+  {
+    "module": "external_orders",
+    "method": "POST",
+    "path": "/api/v1/external/orders",
+    "handler": "list_external_orders"
+  },
+  {
+    "module": "external_orders",
+    "method": "GET",
+    "path": "/api/v1/external/orders",
+    "handler": "get_external_orders"
+  },
+  {
+    "module": "external_publish",
+    "method": "POST",
+    "path": "/api/v1/external/publish/media",
+    "handler": "upload_external_publish_media"
+  },
+  {
+    "module": "external_publish",
+    "method": "POST",
+    "path": "/api/v1/external/publish/single",
+    "handler": "publish_external_single"
+  },
+  {
+    "module": "face_verification",
+    "method": "GET",
+    "path": "/api/v1/face-verification/notifications",
+    "handler": "get_face_verification_notifications"
+  },
+  {
+    "module": "face_verification",
+    "method": "GET",
+    "path": "/api/v1/face-verification/notifications/{account_id}",
+    "handler": "get_account_face_verification"
+  },
+  {
+    "module": "face_verification",
+    "method": "POST",
+    "path": "/api/v1/face-verification/notifications/{notification_id}/read",
+    "handler": "mark_notification_as_read"
+  },
+  {
+    "module": "face_verification",
+    "method": "GET",
+    "path": "/api/v1/face-verification/screenshot/{account_id}",
+    "handler": "get_face_verification_screenshot"
+  },
+  {
+    "module": "face_verification",
+    "method": "DELETE",
+    "path": "/api/v1/face-verification/screenshot/{account_id}",
+    "handler": "delete_face_verification_screenshot"
+  },
+  {
+    "module": "feedback",
+    "method": "GET",
+    "path": "/api/v1/feedbacks/stats",
+    "handler": "get_feedback_stats"
+  },
+  {
+    "module": "feedback",
+    "method": "GET",
+    "path": "/api/v1/feedbacks",
+    "handler": "get_feedbacks"
+  },
+  {
+    "module": "feedback",
+    "method": "GET",
+    "path": "/api/v1/feedbacks/{feedback_id}",
+    "handler": "get_feedback_detail"
+  },
+  {
+    "module": "feedback",
+    "method": "POST",
+    "path": "/api/v1/feedbacks",
+    "handler": "create_feedback"
+  },
+  {
+    "module": "feedback",
+    "method": "POST",
+    "path": "/api/v1/feedbacks/{feedback_id}/reply",
+    "handler": "reply_feedback"
+  },
+  {
+    "module": "feedback",
+    "method": "PUT",
+    "path": "/api/v1/feedbacks/{feedback_id}/resolve",
+    "handler": "resolve_feedback"
+  },
+  {
+    "module": "feedback",
+    "method": "PUT",
+    "path": "/api/v1/feedbacks/{feedback_id}/unresolve",
+    "handler": "unresolve_feedback"
+  },
+  {
+    "module": "feedback",
+    "method": "DELETE",
+    "path": "/api/v1/feedbacks/{feedback_id}",
+    "handler": "delete_feedback"
+  },
+  {
+    "module": "geetest",
+    "method": "GET",
+    "path": "/api/v1/geetest/register",
+    "handler": "geetest_register"
+  },
+  {
+    "module": "geetest",
+    "method": "POST",
+    "path": "/api/v1/geetest/validate",
+    "handler": "geetest_validate"
+  },
+  {
+    "module": "goofish_compass",
+    "method": "POST",
+    "path": "/api/v1/compass/goofish/search",
+    "handler": "search_goofish"
+  },
+  {
+    "module": "goofish_crawler",
+    "method": "GET",
+    "path": "/api/v1/goofish/crawler/jobs",
+    "handler": "list_jobs"
+  },
+  {
+    "module": "goofish_crawler",
+    "method": "POST",
+    "path": "/api/v1/goofish/crawler/jobs",
+    "handler": "create_job"
+  },
+  {
+    "module": "goofish_crawler",
+    "method": "POST",
+    "path": "/api/v1/goofish/crawler/jobs/{job_id}/start",
+    "handler": "start_job"
+  },
+  {
+    "module": "goofish_crawler",
+    "method": "POST",
+    "path": "/api/v1/goofish/crawler/jobs/{job_id}/stop",
+    "handler": "stop_job"
+  },
+  {
+    "module": "goofish_crawler",
+    "method": "GET",
+    "path": "/api/v1/goofish/crawler/jobs/{job_id}/status",
+    "handler": "get_job_status"
+  },
+  {
+    "module": "goofish_crawler",
+    "method": "POST",
+    "path": "/api/v1/goofish/crawler/jobs/{job_id}/run-once",
+    "handler": "run_once_job"
+  },
+  {
+    "module": "goofish_crawler",
+    "method": "GET",
+    "path": "/api/v1/goofish/crawler/jobs/{job_id}/items",
+    "handler": "list_job_items"
+  },
+  {
+    "module": "goofish_crawler",
+    "method": "DELETE",
+    "path": "/api/v1/goofish/crawler/jobs/{job_id}",
+    "handler": "delete_job"
+  },
+  {
+    "module": "health",
+    "method": "GET",
+    "path": "/api/v1/health/ping",
+    "handler": "ping"
+  },
+  {
+    "module": "items",
+    "method": "GET",
+    "path": "/api/v1/items",
+    "handler": "list_items"
+  },
+  {
+    "module": "items",
+    "method": "GET",
+    "path": "/api/v1/items/paginated",
+    "handler": "list_items_paginated"
+  },
+  {
+    "module": "items",
+    "method": "GET",
+    "path": "/api/v1/items/selectable/all",
+    "handler": "list_selectable_items_all"
+  },
+  {
+    "module": "items",
+    "method": "GET",
+    "path": "/api/v1/items/by-card/{card_id}",
+    "handler": "list_items_by_card"
+  },
+  {
+    "module": "items",
+    "method": "GET",
+    "path": "/api/v1/items/cookie/{cookie_id}",
+    "handler": "list_items_by_cookie"
+  },
+  {
+    "module": "items",
+    "method": "GET",
+    "path": "/api/v1/items/{cookie_id}/{item_id}/default-reply",
+    "handler": "get_item_default_reply"
+  },
+  {
+    "module": "items",
+    "method": "PUT",
+    "path": "/api/v1/items/{cookie_id}/{item_id}/default-reply",
+    "handler": "save_item_default_reply"
+  },
+  {
+    "module": "items",
+    "method": "POST",
+    "path": "/api/v1/items/{cookie_id}/{item_id}/default-reply/upload-image",
+    "handler": "upload_item_default_reply_image"
+  },
+  {
+    "module": "items",
+    "method": "DELETE",
+    "path": "/api/v1/items/{cookie_id}/{item_id}/default-reply",
+    "handler": "delete_item_default_reply"
+  },
+  {
+    "module": "items",
+    "method": "POST",
+    "path": "/api/v1/items/{cookie_id}/batch-default-reply/upload-image",
+    "handler": "upload_batch_default_reply_image"
+  },
+  {
+    "module": "items",
+    "method": "POST",
+    "path": "/api/v1/items/{cookie_id}/batch-default-reply",
+    "handler": "batch_save_item_default_reply"
+  },
+  {
+    "module": "items",
+    "method": "POST",
+    "path": "/api/v1/items/{cookie_id}/batch-delete-default-reply",
+    "handler": "batch_delete_item_default_reply"
+  },
+  {
+    "module": "items",
+    "method": "GET",
+    "path": "/api/v1/items/{cookie_id}/{item_id}/ai-prompt",
+    "handler": "get_item_ai_prompt"
+  },
+  {
+    "module": "items",
+    "method": "PUT",
+    "path": "/api/v1/items/{cookie_id}/{item_id}/ai-prompt",
+    "handler": "save_item_ai_prompt"
+  },
+  {
+    "module": "items",
+    "method": "POST",
+    "path": "/api/v1/items/{cookie_id}/batch-delete-ai-prompt",
+    "handler": "batch_delete_item_ai_prompt"
+  },
+  {
+    "module": "items",
+    "method": "POST",
+    "path": "/api/v1/items/{cookie_id}/batch-ai-prompt",
+    "handler": "batch_save_item_ai_prompt"
+  },
+  {
+    "module": "items",
+    "method": "GET",
+    "path": "/api/v1/items/{cookie_id}/{item_id}",
+    "handler": "get_item_detail"
+  },
+  {
+    "module": "items",
+    "method": "PUT",
+    "path": "/api/v1/items/{cookie_id}/{item_id}",
+    "handler": "update_item"
+  },
+  {
+    "module": "items",
+    "method": "PUT",
+    "path": "/api/v1/items/{cookie_id}/{item_id}/multi-spec",
+    "handler": "update_item_multi_spec"
+  },
+  {
+    "module": "items",
+    "method": "PUT",
+    "path": "/api/v1/items/{cookie_id}/{item_id}/price",
+    "handler": "update_item_price"
+  },
+  {
+    "module": "items",
+    "method": "GET",
+    "path": "/api/v1/items/{cookie_id}/{item_id}/seller-detail",
+    "handler": "get_seller_item_edit_detail"
+  },
+  {
+    "module": "items",
+    "method": "PUT",
+    "path": "/api/v1/items/{cookie_id}/{item_id}/seller-edit",
+    "handler": "update_seller_item"
+  },
+  {
+    "module": "items",
+    "method": "PUT",
+    "path": "/api/v1/items/{cookie_id}/{item_id}/multi-quantity-delivery",
+    "handler": "update_item_multi_quantity_delivery"
+  },
+  {
+    "module": "items",
+    "method": "DELETE",
+    "path": "/api/v1/items/delete",
+    "handler": "delete_item_unified"
+  },
+  {
+    "module": "items",
+    "method": "DELETE",
+    "path": "/api/v1/items/{cookie_id}/{item_id}",
+    "handler": "delete_item"
+  },
+  {
+    "module": "items",
+    "method": "DELETE",
+    "path": "/api/v1/items/batch",
+    "handler": "batch_delete_items"
+  },
+  {
+    "module": "items",
+    "method": "POST",
+    "path": "/api/v1/items/batch-offline",
+    "handler": "batch_offline_items"
+  },
+  {
+    "module": "items",
+    "method": "POST",
+    "path": "/api/v1/items/batch-delete-xianyu",
+    "handler": "batch_delete_xianyu_items"
+  },
+  {
+    "module": "items",
+    "method": "POST",
+    "path": "/api/v1/items/get-by-page",
+    "handler": "fetch_items_from_account"
+  },
+  {
+    "module": "items",
+    "method": "POST",
+    "path": "/api/v1/items/get-all-from-account",
+    "handler": "fetch_all_items_from_account"
+  },
+  {
+    "module": "items",
+    "method": "POST",
+    "path": "/api/v1/items/search",
+    "handler": "search_items"
+  },
+  {
+    "module": "keywords",
+    "method": "GET",
+    "path": "/api/v1/keywords-with-item-id",
+    "handler": "get_all_keywords"
+  },
+  {
+    "module": "keywords",
+    "method": "GET",
+    "path": "/api/v1/keywords-with-item-id/{account_id}",
+    "handler": "get_keywords_with_item_id"
+  },
+  {
+    "module": "keywords",
+    "method": "POST",
+    "path": "/api/v1/keywords-with-item-id/{account_id}",
+    "handler": "save_keywords_with_item_id"
+  },
+  {
+    "module": "keywords",
+    "method": "PUT",
+    "path": "/api/v1/keywords-with-item-id/{account_id}/{keyword}",
+    "handler": "update_single_keyword"
+  },
+  {
+    "module": "keywords",
+    "method": "GET",
+    "path": "/api/v1/keywords-with-item-id/{account_id}/export",
+    "handler": "export_keywords"
+  },
+  {
+    "module": "keywords",
+    "method": "POST",
+    "path": "/api/v1/keywords-with-item-id/{account_id}/import",
+    "handler": "import_keywords"
+  },
+  {
+    "module": "keywords",
+    "method": "POST",
+    "path": "/api/v1/keywords-with-item-id/{account_id}/image",
+    "handler": "add_image_keyword"
+  },
+  {
+    "module": "keywords",
+    "method": "DELETE",
+    "path": "/api/v1/keywords-with-item-id/{account_id}/{keyword}",
+    "handler": "delete_single_keyword"
+  },
+  {
+    "module": "listing_monitor",
+    "method": "GET",
+    "path": "/api/v1/product-monitor/listing-tasks",
+    "handler": "list_listing_monitor_tasks"
+  },
+  {
+    "module": "listing_monitor",
+    "method": "GET",
+    "path": "/api/v1/product-monitor/listing-tasks/overview",
+    "handler": "listing_monitor_overview"
+  },
+  {
+    "module": "listing_monitor",
+    "method": "GET",
+    "path": "/api/v1/product-monitor/listing-tasks/remote-risk-config",
+    "handler": "get_monitor_remote_risk_config"
+  },
+  {
+    "module": "listing_monitor",
+    "method": "PUT",
+    "path": "/api/v1/product-monitor/listing-tasks/remote-risk-config",
+    "handler": "save_monitor_remote_risk_config"
+  },
+  {
+    "module": "listing_monitor",
+    "method": "POST",
+    "path": "/api/v1/product-monitor/listing-tasks",
+    "handler": "create_listing_monitor_task"
+  },
+  {
+    "module": "listing_monitor",
+    "method": "PUT",
+    "path": "/api/v1/product-monitor/listing-tasks/{task_id}",
+    "handler": "update_listing_monitor_task"
+  },
+  {
+    "module": "listing_monitor",
+    "method": "PUT",
+    "path": "/api/v1/product-monitor/listing-tasks/{task_id}/status",
+    "handler": "update_listing_monitor_task_status"
+  },
+  {
+    "module": "listing_monitor",
+    "method": "POST",
+    "path": "/api/v1/product-monitor/listing-tasks/{task_id}/run",
+    "handler": "run_listing_monitor_task"
+  },
+  {
+    "module": "listing_monitor",
+    "method": "POST",
+    "path": "/api/v1/product-monitor/listing-tasks/batch-delete",
+    "handler": "batch_delete_listing_monitor_tasks"
+  },
+  {
+    "module": "listing_monitor",
+    "method": "POST",
+    "path": "/api/v1/product-monitor/listing-tasks/batch-update-accounts",
+    "handler": "batch_update_listing_monitor_accounts"
+  },
+  {
+    "module": "listing_monitor",
+    "method": "POST",
+    "path": "/api/v1/product-monitor/listing-tasks/batch-update-category",
+    "handler": "batch_update_listing_monitor_category"
+  },
+  {
+    "module": "listing_monitor",
+    "method": "POST",
+    "path": "/api/v1/product-monitor/listing-tasks/batch-update-dm-content",
+    "handler": "batch_update_listing_monitor_dm_content"
+  },
+  {
+    "module": "listing_monitor",
+    "method": "GET",
+    "path": "/api/v1/product-monitor/listing-tasks/options",
+    "handler": "list_listing_monitor_task_options"
+  },
+  {
+    "module": "listing_monitor",
+    "method": "GET",
+    "path": "/api/v1/product-monitor/listing-tasks/logs",
+    "handler": "list_listing_monitor_logs"
+  },
+  {
+    "module": "listing_monitor",
+    "method": "DELETE",
+    "path": "/api/v1/product-monitor/listing-tasks/logs/clear",
+    "handler": "clear_listing_monitor_logs"
+  },
+  {
+    "module": "listing_monitor",
+    "method": "POST",
+    "path": "/api/v1/product-monitor/listing-tasks/logs/copy-cookies",
+    "handler": "copy_listing_monitor_log_cookies"
+  },
+  {
+    "module": "listing_monitor",
+    "method": "GET",
+    "path": "/api/v1/product-monitor/listing-tasks/items",
+    "handler": "list_listing_monitor_items"
+  },
+  {
+    "module": "listing_monitor",
+    "method": "POST",
+    "path": "/api/v1/product-monitor/listing-tasks/items/reset-dm",
+    "handler": "reset_listing_monitor_items_dm"
+  },
+  {
+    "module": "listing_monitor",
+    "method": "GET",
+    "path": "/api/v1/product-monitor/listing-tasks/items/{item_pk}",
+    "handler": "get_listing_monitor_item"
+  },
+  {
+    "module": "listing_monitor_category",
+    "method": "GET",
+    "path": "/api/v1/product-monitor/categories",
+    "handler": "list_categories"
+  },
+  {
+    "module": "listing_monitor_category",
+    "method": "GET",
+    "path": "/api/v1/product-monitor/categories/{category_id}",
+    "handler": "get_category"
+  },
+  {
+    "module": "listing_monitor_category",
+    "method": "POST",
+    "path": "/api/v1/product-monitor/categories",
+    "handler": "create_category"
+  },
+  {
+    "module": "listing_monitor_category",
+    "method": "PUT",
+    "path": "/api/v1/product-monitor/categories/{category_id}",
+    "handler": "update_category"
+  },
+  {
+    "module": "listing_monitor_category",
+    "method": "DELETE",
+    "path": "/api/v1/product-monitor/categories/{category_id}",
+    "handler": "delete_category"
+  },
+  {
+    "module": "message",
+    "method": "POST",
+    "path": "/api/v1/messages/send",
+    "handler": "send_message"
+  },
+  {
+    "module": "message_filters",
+    "method": "GET",
+    "path": "/api/v1/message-filters",
+    "handler": "get_message_filters"
+  },
+  {
+    "module": "message_filters",
+    "method": "POST",
+    "path": "/api/v1/message-filters",
+    "handler": "create_message_filter"
+  },
+  {
+    "module": "message_filters",
+    "method": "POST",
+    "path": "/api/v1/message-filters/batch-create",
+    "handler": "create_message_filters_batch"
+  },
+  {
+    "module": "message_filters",
+    "method": "PUT",
+    "path": "/api/v1/message-filters/{filter_id}",
+    "handler": "update_message_filter"
+  },
+  {
+    "module": "message_filters",
+    "method": "DELETE",
+    "path": "/api/v1/message-filters/{filter_id}",
+    "handler": "delete_message_filter"
+  },
+  {
+    "module": "message_filters",
+    "method": "POST",
+    "path": "/api/v1/message-filters/batch-delete",
+    "handler": "batch_delete_message_filters"
+  },
+  {
+    "module": "message_filters",
+    "method": "PUT",
+    "path": "/api/v1/message-filters/{filter_id}/toggle",
+    "handler": "toggle_message_filter"
+  },
+  {
+    "module": "notifications",
+    "method": "GET",
+    "path": "/api/v1/notification-channels",
+    "handler": "list_notification_channels"
+  },
+  {
+    "module": "notifications",
+    "method": "POST",
+    "path": "/api/v1/notification-channels",
+    "handler": "create_notification_channel"
+  },
+  {
+    "module": "notifications",
+    "method": "PUT",
+    "path": "/api/v1/notification-channels/{channel_id}",
+    "handler": "update_notification_channel"
+  },
+  {
+    "module": "notifications",
+    "method": "DELETE",
+    "path": "/api/v1/notification-channels/{channel_id}",
+    "handler": "delete_notification_channel"
+  },
+  {
+    "module": "notifications",
+    "method": "POST",
+    "path": "/api/v1/notification-channels/{channel_id}/test",
+    "handler": "test_notification_channel"
+  },
+  {
+    "module": "notifications",
+    "method": "GET",
+    "path": "/api/v1/message-notifications",
+    "handler": "list_message_notifications"
+  },
+  {
+    "module": "notifications",
+    "method": "GET",
+    "path": "/api/v1/message-notifications/{cookie_id}",
+    "handler": "list_message_notifications_for_account"
+  },
+  {
+    "module": "notifications",
+    "method": "POST",
+    "path": "/api/v1/message-notifications/{cookie_id}",
+    "handler": "set_message_notification"
+  },
+  {
+    "module": "notifications",
+    "method": "DELETE",
+    "path": "/api/v1/message-notifications/{notification_id}",
+    "handler": "delete_message_notification"
+  },
+  {
+    "module": "notifications",
+    "method": "DELETE",
+    "path": "/api/v1/message-notifications/account/{cookie_id}",
+    "handler": "delete_account_notifications"
+  },
+  {
+    "module": "orders",
+    "method": "GET",
+    "path": "/api/v1/orders",
+    "handler": "list_orders"
+  },
+  {
+    "module": "orders",
+    "method": "POST",
+    "path": "/api/v1/orders/fetch-xianyu",
+    "handler": "fetch_xianyu_orders"
+  },
+  {
+    "module": "orders",
+    "method": "GET",
+    "path": "/api/v1/orders/{order_no}",
+    "handler": "get_order_detail"
+  },
+  {
+    "module": "orders",
+    "method": "POST",
+    "path": "/api/v1/orders/batch-delete",
+    "handler": "batch_delete_orders"
+  },
+  {
+    "module": "orders",
+    "method": "DELETE",
+    "path": "/api/v1/orders/{order_id}",
+    "handler": "delete_order"
+  },
+  {
+    "module": "orders",
+    "method": "POST",
+    "path": "/api/v1/orders/no-logistics-delivery",
+    "handler": "no_logistics_delivery"
+  },
+  {
+    "module": "orders",
+    "method": "POST",
+    "path": "/api/v1/orders/cancel",
+    "handler": "cancel_order"
+  },
+  {
+    "module": "orders",
+    "method": "POST",
+    "path": "/api/v1/orders/manual-delivery",
+    "handler": "manual_delivery"
+  },
+  {
+    "module": "order_fallback_account",
+    "method": "GET",
+    "path": "/api/v1/product-monitor/order-fallback-accounts",
+    "handler": "list_order_fallback_accounts"
+  },
+  {
+    "module": "order_fallback_account",
+    "method": "PUT",
+    "path": "/api/v1/product-monitor/order-fallback-accounts",
+    "handler": "upsert_order_fallback_accounts"
+  },
+  {
+    "module": "order_fallback_account",
+    "method": "DELETE",
+    "path": "/api/v1/product-monitor/order-fallback-accounts",
+    "handler": "delete_order_fallback_accounts"
+  },
+  {
+    "module": "password_login",
+    "method": "POST",
+    "path": "/api/v1/password-login",
+    "handler": "password_login"
+  },
+  {
+    "module": "password_login",
+    "method": "GET",
+    "path": "/api/v1/password-login/check/{session_id}",
+    "handler": "check_login_status"
+  },
+  {
+    "module": "password_login",
+    "method": "DELETE",
+    "path": "/api/v1/password-login/cancel/{session_id}",
+    "handler": "cancel_login"
+  },
+  {
+    "module": "payment",
+    "method": "POST",
+    "path": "/api/v1/payment/recharge",
+    "handler": "create_recharge"
+  },
+  {
+    "module": "payment",
+    "method": "POST",
+    "path": "/api/v1/payment/alipay/notify",
+    "handler": "alipay_notify"
+  },
+  {
+    "module": "payment",
+    "method": "GET",
+    "path": "/api/v1/payment/recharge/{order_no}",
+    "handler": "get_recharge_status"
+  },
+  {
+    "module": "payment",
+    "method": "POST",
+    "path": "/api/v1/payment/withdraw",
+    "handler": "create_withdraw"
+  },
+  {
+    "module": "payment",
+    "method": "GET",
+    "path": "/api/v1/payment/settlement-records",
+    "handler": "get_settlement_records"
+  },
+  {
+    "module": "payment",
+    "method": "GET",
+    "path": "/api/v1/payment/withdraw/review",
+    "handler": "review_withdraw"
+  },
+  {
+    "module": "payment",
+    "method": "POST",
+    "path": "/api/v1/payment/withdraw/approve",
+    "handler": "do_approve_withdraw"
+  },
+  {
+    "module": "payment",
+    "method": "POST",
+    "path": "/api/v1/payment/withdraw/reject",
+    "handler": "do_reject_withdraw"
+  },
+  {
+    "module": "personal_addresses",
+    "method": "GET",
+    "path": "/api/v1/product-publish/personal-addresses",
+    "handler": "list_personal_addresses"
+  },
+  {
+    "module": "personal_addresses",
+    "method": "POST",
+    "path": "/api/v1/product-publish/personal-addresses",
+    "handler": "create_personal_address"
+  },
+  {
+    "module": "personal_addresses",
+    "method": "PUT",
+    "path": "/api/v1/product-publish/personal-addresses/{address_id}",
+    "handler": "update_personal_address"
+  },
+  {
+    "module": "personal_addresses",
+    "method": "POST",
+    "path": "/api/v1/product-publish/personal-addresses/batch-delete",
+    "handler": "batch_delete_personal_addresses"
+  },
+  {
+    "module": "personal_addresses",
+    "method": "GET",
+    "path": "/api/v1/product-publish/personal-addresses/export",
+    "handler": "export_personal_addresses"
+  },
+  {
+    "module": "personal_addresses",
+    "method": "POST",
+    "path": "/api/v1/product-publish/personal-addresses/import",
+    "handler": "import_personal_addresses"
+  },
+  {
+    "module": "popup_announcements",
+    "method": "GET",
+    "path": "/api/v1/popup-announcements/public",
+    "handler": "get_public_popup_announcements"
+  },
+  {
+    "module": "popup_announcements",
+    "method": "GET",
+    "path": "/api/v1/popup-announcements",
+    "handler": "get_popup_announcements"
+  },
+  {
+    "module": "popup_announcements",
+    "method": "POST",
+    "path": "/api/v1/popup-announcements",
+    "handler": "create_popup_announcement"
+  },
+  {
+    "module": "popup_announcements",
+    "method": "PUT",
+    "path": "/api/v1/popup-announcements/{popup_id}",
+    "handler": "update_popup_announcement"
+  },
+  {
+    "module": "popup_announcements",
+    "method": "PUT",
+    "path": "/api/v1/popup-announcements/{popup_id}/toggle",
+    "handler": "toggle_popup_announcement"
+  },
+  {
+    "module": "popup_announcements",
+    "method": "DELETE",
+    "path": "/api/v1/popup-announcements/{popup_id}",
+    "handler": "delete_popup_announcement"
+  },
+  {
+    "module": "product_publish",
+    "method": "POST",
+    "path": "/api/v1/product-publish/category/recommend",
+    "handler": "recommend_category"
+  },
+  {
+    "module": "product_publish",
+    "method": "POST",
+    "path": "/api/v1/product-publish/materials",
+    "handler": "create_material"
+  },
+  {
+    "module": "product_publish",
+    "method": "GET",
+    "path": "/api/v1/product-publish/materials",
+    "handler": "list_materials"
+  },
+  {
+    "module": "product_publish",
+    "method": "POST",
+    "path": "/api/v1/product-publish/materials/batch-delete",
+    "handler": "batch_delete_materials"
+  },
+  {
+    "module": "product_publish",
+    "method": "GET",
+    "path": "/api/v1/product-publish/materials/{material_id}/auto-relist",
+    "handler": "get_auto_relist_rule"
+  },
+  {
+    "module": "product_publish",
+    "method": "PUT",
+    "path": "/api/v1/product-publish/materials/{material_id}/auto-relist",
+    "handler": "save_auto_relist_rule"
+  },
+  {
+    "module": "product_publish",
+    "method": "GET",
+    "path": "/api/v1/product-publish/materials/{material_id}/auto-relist/events",
+    "handler": "list_auto_relist_events"
+  },
+  {
+    "module": "product_publish",
+    "method": "GET",
+    "path": "/api/v1/product-publish/auto-relist/events",
+    "handler": "list_all_auto_relist_events"
+  },
+  {
+    "module": "product_publish",
+    "method": "POST",
+    "path": "/api/v1/product-publish/materials/{material_id}/auto-relist/events/{event_id}/reconcile",
+    "handler": "reconcile_auto_relist_event"
+  },
+  {
+    "module": "product_publish",
+    "method": "POST",
+    "path": "/api/v1/product-publish/materials/{material_id}/auto-relist/events/{event_id}/mark-failed",
+    "handler": "mark_auto_relist_event_failed"
+  },
+  {
+    "module": "product_publish",
+    "method": "GET",
+    "path": "/api/v1/product-publish/materials/{material_id}",
+    "handler": "get_material"
+  },
+  {
+    "module": "product_publish",
+    "method": "PUT",
+    "path": "/api/v1/product-publish/materials/{material_id}",
+    "handler": "update_material"
+  },
+  {
+    "module": "product_publish",
+    "method": "DELETE",
+    "path": "/api/v1/product-publish/materials/{material_id}",
+    "handler": "delete_material"
+  },
+  {
+    "module": "product_publish",
+    "method": "POST",
+    "path": "/api/v1/product-publish/publish/single",
+    "handler": "publish_single"
+  },
+  {
+    "module": "product_publish",
+    "method": "POST",
+    "path": "/api/v1/product-publish/publish/batch",
+    "handler": "publish_batch"
+  },
+  {
+    "module": "product_publish",
+    "method": "GET",
+    "path": "/api/v1/product-publish/publish/batch/{batch_id}/status",
+    "handler": "get_batch_status"
+  },
+  {
+    "module": "product_publish",
+    "method": "GET",
+    "path": "/api/v1/product-publish/logs",
+    "handler": "list_publish_logs"
+  },
+  {
+    "module": "product_publish",
+    "method": "DELETE",
+    "path": "/api/v1/product-publish/logs/clear",
+    "handler": "clear_publish_logs"
+  },
+  {
+    "module": "product_publish",
+    "method": "POST",
+    "path": "/api/v1/product-publish/upload/images",
+    "handler": "upload_product_images"
+  },
+  {
+    "module": "product_publish",
+    "method": "POST",
+    "path": "/api/v1/product-publish/upload/videos",
+    "handler": "upload_product_videos"
+  },
+  {
+    "module": "product_publish_capability",
+    "method": "GET",
+    "path": "/api/v1/product-publish/accounts/{account_id}/capability",
+    "handler": "get_publish_account_capability"
+  },
+  {
+    "module": "proxy",
+    "method": "GET",
+    "path": "/api/v1/proxy/{account_id}",
+    "handler": "get_proxy_config"
+  },
+  {
+    "module": "proxy",
+    "method": "PUT",
+    "path": "/api/v1/proxy/{account_id}",
+    "handler": "update_proxy_config"
+  },
+  {
+    "module": "proxy",
+    "method": "DELETE",
+    "path": "/api/v1/proxy/{account_id}",
+    "handler": "clear_proxy_config"
+  },
+  {
+    "module": "publish_addresses",
+    "method": "GET",
+    "path": "/api/v1/product-publish/addresses",
+    "handler": "list_publish_addresses"
+  },
+  {
+    "module": "publish_addresses",
+    "method": "GET",
+    "path": "/api/v1/product-publish/addresses/account-options",
+    "handler": "list_publish_address_account_options"
+  },
+  {
+    "module": "publish_addresses",
+    "method": "GET",
+    "path": "/api/v1/product-publish/addresses/input-tips",
+    "handler": "search_amap_input_tips"
+  },
+  {
+    "module": "publish_addresses",
+    "method": "POST",
+    "path": "/api/v1/product-publish/addresses",
+    "handler": "create_publish_address"
+  },
+  {
+    "module": "publish_addresses",
+    "method": "PUT",
+    "path": "/api/v1/product-publish/addresses/{address_id}",
+    "handler": "update_publish_address"
+  },
+  {
+    "module": "publish_addresses",
+    "method": "POST",
+    "path": "/api/v1/product-publish/addresses/batch-delete",
+    "handler": "batch_delete_publish_addresses"
+  },
+  {
+    "module": "publish_addresses",
+    "method": "PUT",
+    "path": "/api/v1/product-publish/addresses/{address_id}/status",
+    "handler": "update_publish_address_status"
+  },
+  {
+    "module": "qrcode",
+    "method": "GET",
+    "path": "/api/v1/qrcode/{qrcode_type}",
+    "handler": "get_qrcode"
+  },
+  {
+    "module": "qrcode",
+    "method": "POST",
+    "path": "/api/v1/qrcode/{qrcode_type}",
+    "handler": "upload_qrcode"
+  },
+  {
+    "module": "qr_login",
+    "method": "POST",
+    "path": "/api/v1/qr-login/generate",
+    "handler": "generate_qr_code"
+  },
+  {
+    "module": "qr_login",
+    "method": "GET",
+    "path": "/api/v1/qr-login/status/{session_id}",
+    "handler": "get_qr_status"
+  },
+  {
+    "module": "qr_login",
+    "method": "GET",
+    "path": "/api/v1/qr-login/cookie/{session_id}",
+    "handler": "get_qr_cookie"
+  },
+  {
+    "module": "refund_cancel",
+    "method": "GET",
+    "path": "/api/v1/refund-cancel/{account_id}",
+    "handler": "get_refund_cancel_config"
+  },
+  {
+    "module": "refund_cancel",
+    "method": "PUT",
+    "path": "/api/v1/refund-cancel/{account_id}",
+    "handler": "update_refund_cancel_config"
+  },
+  {
+    "module": "risk_control_logs",
+    "method": "GET",
+    "path": "/api/v1/risk-control-logs",
+    "handler": "list_risk_logs"
+  },
+  {
+    "module": "risk_control_logs",
+    "method": "GET",
+    "path": "/api/v1/risk-control-logs/today-success-rate",
+    "handler": "get_today_success_rate"
+  },
+  {
+    "module": "risk_control_logs",
+    "method": "GET",
+    "path": "/api/v1/risk-control-logs/local-slider-config",
+    "handler": "get_local_slider_config"
+  },
+  {
+    "module": "risk_control_logs",
+    "method": "PUT",
+    "path": "/api/v1/risk-control-logs/local-slider-config",
+    "handler": "update_local_slider_config"
+  },
+  {
+    "module": "search",
+    "method": "POST",
+    "path": "/api/v1/search/items",
+    "handler": "search_items"
+  },
+  {
+    "module": "shared_scan",
+    "method": "POST",
+    "path": "/api/v1/shared-scan/create",
+    "handler": "create_shared_session"
+  },
+  {
+    "module": "shared_scan",
+    "method": "GET",
+    "path": "/api/v1/shared-scan/list",
+    "handler": "list_shared_sessions"
+  },
+  {
+    "module": "shared_scan",
+    "method": "GET",
+    "path": "/api/v1/shared-scan/status",
+    "handler": "get_session_status"
+  },
+  {
+    "module": "shared_scan",
+    "method": "DELETE",
+    "path": "/api/v1/shared-scan/{session_id}",
+    "handler": "delete_shared_session"
+  },
+  {
+    "module": "shared_scan",
+    "method": "POST",
+    "path": "/api/v1/shared-scan/join",
+    "handler": "join_shared_session"
+  },
+  {
+    "module": "shared_scan",
+    "method": "GET",
+    "path": "/api/v1/shared-scan/worker-status",
+    "handler": "get_worker_status"
+  },
+  {
+    "module": "system_control",
+    "method": "GET",
+    "path": "/api/v1/system-control/status",
+    "handler": "get_services_status"
+  },
+  {
+    "module": "system_control",
+    "method": "POST",
+    "path": "/api/v1/system-control/restart/{service_key}",
+    "handler": "restart"
+  },
+  {
+    "module": "system_settings",
+    "method": "GET",
+    "path": "/api/v1/system-settings/public",
+    "handler": "get_public_settings"
+  },
+  {
+    "module": "system_settings",
+    "method": "GET",
+    "path": "/api/v1/system-settings",
+    "handler": "get_system_settings"
+  },
+  {
+    "module": "system_settings",
+    "method": "PUT",
+    "path": "/api/v1/system-settings/{key}",
+    "handler": "update_system_setting"
+  },
+  {
+    "module": "system_settings",
+    "method": "POST",
+    "path": "/api/v1/system-settings/test-email",
+    "handler": "test_email_send"
+  },
+  {
+    "module": "system_settings",
+    "method": "POST",
+    "path": "/api/v1/system-settings/test-token-remote",
+    "handler": "test_token_remote_interface"
+  },
+  {
+    "module": "system_settings",
+    "method": "POST",
+    "path": "/api/v1/system-settings/test-password-login-remote",
+    "handler": "test_password_login_remote_interface"
+  },
+  {
+    "module": "token_renewal_logs",
+    "method": "GET",
+    "path": "/api/v1/admin/token-renewal-batches",
+    "handler": "list_token_renewal_batches"
+  },
+  {
+    "module": "token_renewal_logs",
+    "method": "GET",
+    "path": "/api/v1/admin/token-renewal-batches/{batch_id}",
+    "handler": "get_token_renewal_batch_detail"
+  },
+  {
+    "module": "upload",
+    "method": "POST",
+    "path": "/api/v1/upload/upload-image",
+    "handler": "upload_image"
+  },
+  {
+    "module": "users",
+    "method": "GET",
+    "path": "/api/v1/users/me",
+    "handler": "read_current_user"
+  },
+  {
+    "module": "users",
+    "method": "POST",
+    "path": "/api/v1/users/renew",
+    "handler": "renew_membership"
+  },
+  {
+    "module": "users",
+    "method": "POST",
+    "path": "/api/v1/users/change-password",
+    "handler": "change_password"
+  },
+  {
+    "module": "users",
+    "method": "GET",
+    "path": "/api/v1/users/dock-code",
+    "handler": "get_dock_code"
+  },
+  {
+    "module": "users",
+    "method": "POST",
+    "path": "/api/v1/users/dock-code/reset",
+    "handler": "reset_dock_code"
+  },
+  {
+    "module": "users",
+    "method": "GET",
+    "path": "/api/v1/users/secret-key",
+    "handler": "get_secret_key"
+  },
+  {
+    "module": "users",
+    "method": "POST",
+    "path": "/api/v1/users/secret-key/reset",
+    "handler": "reset_secret_key"
+  },
+  {
+    "module": "user_login_logs",
+    "method": "GET",
+    "path": "/api/v1/user-login-logs",
+    "handler": "list_user_login_logs"
+  },
+  {
+    "module": "user_settings",
+    "method": "POST",
+    "path": "/api/v1/user-settings/external-api/location-chat/test",
+    "handler": "test_location_chat_external_api"
+  },
+  {
+    "module": "user_settings",
+    "method": "GET",
+    "path": "/api/v1/user-settings",
+    "handler": "get_user_settings"
+  },
+  {
+    "module": "user_settings",
+    "method": "GET",
+    "path": "/api/v1/user-settings/{key}",
+    "handler": "get_user_setting"
+  },
+  {
+    "module": "user_settings",
+    "method": "PUT",
+    "path": "/api/v1/user-settings/{key}",
+    "handler": "update_user_setting"
+  },
+  {
+    "module": "user_settings",
+    "method": "DELETE",
+    "path": "/api/v1/user-settings/{key}",
+    "handler": "delete_user_setting"
+  },
+  {
+    "module": "user_settings",
+    "method": "POST",
+    "path": "/api/v1/user-settings/card-secret-key/create",
+    "handler": "create_card_secret_key"
+  },
+  {
+    "module": "user_settings",
+    "method": "POST",
+    "path": "/api/v1/user-settings/payment-qrcode/upload",
+    "handler": "upload_payment_qrcode"
+  },
+  {
+    "module": "version",
+    "method": "GET",
+    "path": "/api/v1/version/current",
+    "handler": "get_current_version_api"
+  },
+  {
+    "module": "version",
+    "method": "GET",
+    "path": "/api/v1/version/check",
+    "handler": "check_update_api"
+  }
+]
