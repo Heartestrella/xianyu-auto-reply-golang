@@ -16,6 +16,13 @@
 > 
 > 不建议直接接替原项目使用。如果您有问题，请返回 [issue](https://github.com/Heartestrella/xianyu-auto-reply-golang/issues) 反馈。
 
+## 需要在外网访问但是没有公网IP?
+推荐使用[Beefrp](https://beefrp.cn) 免费使用隧道内网穿透 支持全平台/Docker部署 价格便宜实惠
+
+<img width="1506" height="776" alt="image" src="https://github.com/user-attachments/assets/2d0df1df-0a1e-49c1-b4be-aab8fcd85068" />
+
+
+
 ## 推荐安装方式：Docker
 
 ### 1. 安装 Docker
