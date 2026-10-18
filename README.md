@@ -10,6 +10,12 @@
 
 > 如果您需要的是开放给其他人使用，请使用原版项目。
 
+> **⚠️ Warning**
+> 
+> 该项目处于 **测试阶段**，可能存在诸多 bug。
+> 
+> 不建议直接接替原项目使用。如果您有问题，请返回 [issue](https://github.com/Heartestrella/xianyu-auto-reply-golang/issues) 反馈。
+
 ## 推荐安装方式：Docker
 
 ### 1. 安装 Docker
