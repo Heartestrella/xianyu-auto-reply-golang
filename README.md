@@ -1,48 +1,80 @@
-## 闲鱼自动回复系统
+# 闲鱼自动回复 Go 版
 
-该项目基于 [闲鱼自动回复系统](https://github.com/zhinianboke/xianyu-auto-reply) 重构的 **Golang** 版本。
+这是一个用于个人闲鱼账号的自动化管理工具，提供：
 
-相比于原版的占用，该版本在常驻状态下仅占用不到 **40MB** 的空间。
+- 自动回复和聊天管理
+- 商品管理、发布和擦亮
+- 订单同步、发货和自动评价
+- 商品监控和消息通知
+- 图片、视频和素材管理
 
-相比原版，移除了对 **MySQL** 的支持，只使用内置 **SQLite**，节省大量资源。
+本版本使用 Go 和 SQLite，安装简单，不需要 MySQL 或 Redis。
 
-同时，该版本仅为个人用户使用设计，删除了原项目里各种账号注册、广告显示等功能，只保留核心功能。
+## 推荐安装方式：Docker
 
-> 如果您需要的是开放给其他人使用，请使用原版项目。
+### 1. 安装 Docker
 
-**截图：**
+在服务器安装 Docker 和 Docker Compose。Windows、macOS 用户可以安装 [Docker Desktop](https://www.docker.com/products/docker-desktop/)。Linux 用户请参考 [Docker 官方安装文档](https://docs.docker.com/engine/install/)。
 
-<img width="1919" height="910" alt="image" src="https://github.com/user-attachments/assets/b4f6053a-d5d0-4280-a0e5-717add2e111b" />
-
-
-
-## Docker Compose 部署
-
-服务器安装 Docker Engine 和 Docker Compose 插件后，创建部署目录并下载 Compose 文件：
+### 2. 创建目录
 
 ```bash
 mkdir -p xianyu-auto-go/data
 cd xianyu-auto-go
-curl -fsSLO https://raw.githubusercontent.com/Heartestrella/xianyu-auto-reply-golang/main/docker-compose.yml
 ```
 
-生成随机 JWT 密钥并保存在仅本机可读的 `.env` 文件：
+### 3. 下载配置文件
 
 ```bash
-umask 077
-printf 'JWT_SECRET=%s\nPORT=9000\n' "$(openssl rand -hex 32)" > .env
+curl -LO https://raw.githubusercontent.com/Heartestrella/xianyu-auto-reply-golang/main/docker-compose.yml
 ```
 
-拉取并启动：
+Windows 用户也可以在浏览器打开上面的链接，将文件保存为 `docker-compose.yml`。
+
+### 4. 启动服务
 
 ```bash
-docker compose pull
 docker compose up -d
-docker compose ps
-docker compose logs -f xianyu
 ```
 
-打开 `http://服务器地址:9000`。首次登录默认账号密码为 `admin / admin123`，登录后立即修改密码。SQLite 数据与上传文件保存在部署目录的 `data/`，升级时请保留该目录。
+程序会自动下载镜像，并在 `data/` 中保存数据库、上传文件和登录密钥。首次启动不需要手动生成 JWT 密钥。
+
+### 5. 打开管理页面
+
+在浏览器访问：
+
+```text
+http://服务器IP:9000
+```
+
+首次登录账号：
+
+```text
+用户名：admin
+密码：admin123
+```
+
+登录后请立即修改密码。
+
+## 常用操作
+
+查看运行状态：
+
+```bash
+docker compose ps
+```
+
+查看运行日志：
+
+```bash
+docker compose logs -f
+```
+
+停止服务：
+
+```bash
+docker compose down
+```
 
 升级到最新版本：
 
@@ -51,32 +83,58 @@ docker compose pull
 docker compose up -d
 ```
 
-部署指定标签时，在 `.env` 中设置 `IMAGE=ghcr.io/heartestrella/xianyu-auto-reply-golang:v1.0.0`，再执行上述升级命令。
+升级或重启时不要删除 `data/` 目录，否则会丢失数据库、上传文件和登录密钥。
 
-## 二进制部署
+## 修改端口
 
-从 GitHub Releases 下载与操作系统和 CPU 架构对应的压缩包及 `.sha256` 校验文件。Linux 示例：
+默认访问端口是 `9000`。如果端口被占用，在 `docker-compose.yml` 所在目录创建 `.env` 文件：
 
-```bash
-sha256sum -c xianyu-go-linux-amd64.tar.gz.sha256
-tar -xzf xianyu-go-linux-amd64.tar.gz
-cd xianyu-go-linux-amd64
-chmod +x xianyu-go-linux-amd64
-mkdir -p data
-JWT_SECRET="$(openssl rand -hex 32)" DATA_DIR=./data LISTEN_ADDR=:8089 ./xianyu-go-linux-amd64
+```env
+PORT=8080
 ```
 
-压缩包内已包含 `frontend/dist`，解压后程序会从默认相对路径读取前端资源。Windows 下载 `xianyu-go-windows-amd64.exe.zip`，解压后设置 `JWT_SECRET`、`DATA_DIR` 环境变量并启动 `xianyu-go.exe`。建议用 systemd、Windows 服务管理器或容器编排工具托管进程。
-
-## 本地开发
+然后重新启动：
 
 ```bash
-cd frontend
-npm ci
-npm run build
-cd ..
-go test ./...
-go run ./cmd/server
+docker compose up -d
 ```
 
-默认监听 `:8089`。可通过 `LISTEN_ADDR`、`DATA_DIR`、`STATIC_DIR` 和 `JWT_SECRET` 配置；对外部署时不要使用默认 JWT 密钥。
+此时访问 `http://服务器IP:8080`。
+
+## 使用指定版本
+
+默认使用最新版。需要固定版本时，在 `.env` 中写入：
+
+```env
+IMAGE=ghcr.io/heartestrella/xianyu-auto-reply-golang:v1.0.0
+```
+
+然后执行：
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+## 直接运行程序
+
+不使用 Docker 的用户可以从 [Releases](https://github.com/Heartestrella/xianyu-auto-reply-golang/releases) 下载对应系统的压缩包。
+
+解压后，在程序目录运行：
+
+```bash
+./xianyu-go-linux-amd64
+```
+
+Windows 用户双击 `xianyu-go.exe` 即可启动。程序会自动创建 `data/` 目录和登录密钥。运行时不要删除该目录。
+
+## 安全提示
+
+- 不要把 `data/` 目录上传到 GitHub 或发送给其他人。
+- 不要公开 Cookie、账号密码或 Token。
+- 不要删除 `data/.jwt_secret`，否则已有登录会话会失效。
+- 建议只在自己的服务器或电脑上使用，并通过防火墙限制访问。
+
+## 问题反馈
+
+提交问题时请附上操作系统、安装方式、错误现象和相关日志。请先删除日志中的 Cookie、Token、密码和个人信息。
