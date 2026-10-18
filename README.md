@@ -14,23 +14,7 @@
 
 <img width="1919" height="910" alt="image" src="https://github.com/user-attachments/assets/b4f6053a-d5d0-4280-a0e5-717add2e111b" />
 
-## CI 与发布
 
-推送到 `main`、提交 Pull Request 或手动运行 Actions 时，CI 会运行 Go 测试、`go vet` 和前端构建。发布时创建 `v` 开头的标签：
-
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-标签构建会在 GitHub Release 上传 Linux amd64/arm64、Windows amd64、macOS amd64/arm64 的部署压缩包及 SHA-256 校验文件。每个压缩包都包含对应程序、`frontend/dist`、README 和 LICENSE。Docker 镜像发布为 `linux/amd64` 和 `linux/arm64` 多架构镜像：
-
-```text
-ghcr.io/heartestrella/xianyu-auto-reply-golang:latest
-ghcr.io/heartestrella/xianyu-auto-reply-golang:<版本标签>
-```
-
-GHCR 登录使用 Actions 自动提供的短期 `GITHUB_TOKEN`，不需要在仓库中保存个人 Token。若改用 Docker Hub 等外部仓库，在仓库 `Settings -> Secrets and variables -> Actions` 配置 `DOCKERHUB_USERNAME` 和 `DOCKERHUB_TOKEN`，并通过 `${{ secrets.* }}` 引用；不要将凭据写入源码、Dockerfile 或 Compose 文件。
 
 ## Docker Compose 部署
 
@@ -42,18 +26,11 @@ cd xianyu-auto-go
 curl -fsSLO https://raw.githubusercontent.com/Heartestrella/xianyu-auto-reply-golang/main/docker-compose.yml
 ```
 
-程序首次启动时会在持久化数据目录生成随机 JWT 密钥，并保存为 `data/.jwt_secret`；后续重启会复用它，因此不需要手动生成。请确保 `data/` 挂载卷不会被删除，并将该文件视为敏感凭据。也可以通过环境变量显式覆盖：
+生成随机 JWT 密钥并保存在仅本机可读的 `.env` 文件：
 
 ```bash
-printf 'PORT=9000\n' > .env
-# 可选：只有需要外部统一管理密钥时才设置 JWT_SECRET
-# printf 'JWT_SECRET=%s\n' "$(openssl rand -hex 32)" >> .env
-```
-
-公开镜像无需登录 GHCR。若镜像是私有的，使用有 `read:packages` 权限的 GitHub Token 登录（将 Token 保存在服务器环境或密钥管理器中，不要写入 `.env` 或 shell 历史）：
-
-```bash
-echo "$GHCR_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_NAME --password-stdin
+umask 077
+printf 'JWT_SECRET=%s\nPORT=9000\n' "$(openssl rand -hex 32)" > .env
 ```
 
 拉取并启动：
@@ -102,4 +79,4 @@ go test ./...
 go run ./cmd/server
 ```
 
-默认监听 `:8089`。可通过 `LISTEN_ADDR`、`DATA_DIR`、`STATIC_DIR` 和 `JWT_SECRET` 配置。未设置 `JWT_SECRET` 时程序会自动生成并持久化随机密钥；不要删除 `data/.jwt_secret`，否则所有现有登录令牌会失效。
+默认监听 `:8089`。可通过 `LISTEN_ADDR`、`DATA_DIR`、`STATIC_DIR` 和 `JWT_SECRET` 配置；对外部署时不要使用默认 JWT 密钥。
