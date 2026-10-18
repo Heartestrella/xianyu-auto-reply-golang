@@ -45,9 +45,15 @@ jobs:
           - goos: linux
             goarch: arm64
             suffix: linux-arm64
+          - goos: linux
+            goarch: 386
+            suffix: linux-386
           - goos: windows
             goarch: amd64
             suffix: windows-amd64.exe
+          - goos: windows
+            goarch: 386
+            suffix: windows-386.exe
           - goos: darwin
             goarch: amd64
             suffix: darwin-amd64
@@ -73,10 +79,10 @@ jobs:
           set -euo pipefail
           mkdir -p release
           export GOOS='${{ matrix.goos }}' GOARCH='${{ matrix.goarch }}' CGO_ENABLED=0
-          go build -trimpath -ldflags='-s -w' -o "release/xianyu-go-${{ matrix.suffix }}" ./cmd/server
           package="xianyu-go-${{ matrix.suffix }}"
+          binary="xianyu-go${{ matrix.goos == 'windows' && '.exe' || '' }}"
           mkdir -p "release/${package}/frontend"
-          cp "release/${package}" "release/${package}/xianyu-go${{ matrix.goos == 'windows' && '.exe' || '' }}"
+          go build -trimpath -ldflags='-s -w' -o "release/${package}/${binary}" ./cmd/server
           cp -R frontend/dist "release/${package}/frontend/"
           cp README.md LICENSE "release/${package}/"
           if [ '${{ matrix.goos }}' = windows ]; then
