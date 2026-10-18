@@ -60,6 +60,8 @@ docker compose up -d
 http://服务器IP:9000
 ```
 
+> 端口不对的话请查找日志
+
 首次登录账号：
 
 ```text
