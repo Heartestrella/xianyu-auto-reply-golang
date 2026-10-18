@@ -23,7 +23,7 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-标签构建会在 GitHub Release 上传 Linux amd64/arm64、Windows amd64、macOS amd64/arm64 二进制及 SHA-256 校验文件，并发布 `linux/amd64` 和 `linux/arm64` Docker 镜像：
+标签构建会在 GitHub Release 上传 Linux amd64/arm64、Windows amd64、macOS amd64/arm64 的部署压缩包及 SHA-256 校验文件。每个压缩包都包含对应程序、`frontend/dist`、README 和 LICENSE。Docker 镜像发布为 `linux/amd64` 和 `linux/arm64` 多架构镜像：
 
 ```text
 ghcr.io/heartestrella/xianyu-auto-reply-golang:latest
@@ -49,7 +49,7 @@ umask 077
 printf 'JWT_SECRET=%s\nPORT=9000\n' "$(openssl rand -hex 32)" > .env
 ```
 
-公开镜像无需登录 GHCR。若镜像是私有的，使用有 `read:packages` 权限的 GitHub Token 登录：
+公开镜像无需登录 GHCR。若镜像是私有的，使用有 `read:packages` 权限的 GitHub Token 登录（将 Token 保存在服务器环境或密钥管理器中，不要写入 `.env` 或 shell 历史）：
 
 ```bash
 echo "$GHCR_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_NAME --password-stdin
@@ -77,16 +77,18 @@ docker compose up -d
 
 ## 二进制部署
 
-从 GitHub Releases 下载与操作系统和 CPU 架构对应的程序及 `.sha256` 校验文件。Linux 示例：
+从 GitHub Releases 下载与操作系统和 CPU 架构对应的压缩包及 `.sha256` 校验文件。Linux 示例：
 
 ```bash
-sha256sum -c xianyu-go-linux-amd64.sha256
+sha256sum -c xianyu-go-linux-amd64.tar.gz.sha256
+tar -xzf xianyu-go-linux-amd64.tar.gz
+cd xianyu-go-linux-amd64
 chmod +x xianyu-go-linux-amd64
 mkdir -p data
 JWT_SECRET="$(openssl rand -hex 32)" DATA_DIR=./data LISTEN_ADDR=:8089 ./xianyu-go-linux-amd64
 ```
 
-运行时需要程序配套的 `frontend/dist` 静态文件目录；Release 如未附带该目录，请从源码执行 `cd frontend && npm ci && npm run build`，并将构建出的 `frontend/dist` 放在程序旁。Windows 使用 `xianyu-go-windows-amd64.exe`，启动前设置 `JWT_SECRET`、`DATA_DIR` 环境变量。建议用 systemd、Windows 服务管理器或容器编排工具托管进程。
+压缩包内已包含 `frontend/dist`，解压后程序会从默认相对路径读取前端资源。Windows 下载 `xianyu-go-windows-amd64.exe.zip`，解压后设置 `JWT_SECRET`、`DATA_DIR` 环境变量并启动 `xianyu-go.exe`。建议用 systemd、Windows 服务管理器或容器编排工具托管进程。
 
 ## 本地开发
 

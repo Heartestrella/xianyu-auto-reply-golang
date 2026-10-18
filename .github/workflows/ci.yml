@@ -72,9 +72,19 @@ jobs:
           mkdir -p release
           export GOOS='${{ matrix.goos }}' GOARCH='${{ matrix.goarch }}' CGO_ENABLED=0
           go build -trimpath -ldflags='-s -w' -o "release/xianyu-go-${{ matrix.suffix }}" ./cmd/server
-          cp README.md LICENSE release/
-          cd release
-          sha256sum "xianyu-go-${{ matrix.suffix }}" > "xianyu-go-${{ matrix.suffix }}.sha256"
+          package="xianyu-go-${{ matrix.suffix }}"
+          mkdir -p "release/${package}/frontend"
+          cp "release/${package}" "release/${package}/xianyu-go${{ matrix.goos == 'windows' && '.exe' || '' }}"
+          cp -R frontend/dist "release/${package}/frontend/"
+          cp README.md LICENSE "release/${package}/"
+          if [ '${{ matrix.goos }}' = windows ]; then
+            archive="${package}.zip"
+            (cd release && zip -qr "${archive}" "${package}")
+          else
+            archive="${package}.tar.gz"
+            tar -C release -czf "release/${archive}" "${package}"
+          fi
+          sha256sum "release/${archive}" > "release/${archive}.sha256"
       - uses: softprops/action-gh-release@v2
         with:
           files: release/*
@@ -106,7 +116,7 @@ jobs:
           images: ${{ steps.image.outputs.name }}
           tags: |
             type=ref,event=tag
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest
       - name: Build and push multi-platform image
         uses: docker/build-push-action@v6
         with:
