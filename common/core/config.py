@@ -1,0 +1,159 @@
+"""
+共享配置基类
+
+功能：
+1. 从环境变量加载配置
+2. 提供数据库连接URL
+3. 提供Redis连接配置
+4. 提供通用配置项
+"""
+from __future__ import annotations
+
+from functools import lru_cache
+from urllib.parse import quote_plus
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class BaseConfig(BaseSettings):
+    """
+    所有服务的基础配置类
+    
+    包含数据库连接、Redis连接、日志级别等通用配置
+    各服务可以继承此类并添加自己的特定配置
+    """
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    # 环境配置
+    environment: str = Field(default="development")
+    log_level: str = Field(default="INFO")
+
+    # SQL 日志开关：开启后会在每条 SQL 执行前打印拼接好参数的完整 SQL。
+    # 默认开启，便于开发与 Docker 环境排查；高并发生产环境如需降低开销可设为 false。
+    sql_echo: bool = Field(default=True)
+
+    # 数据库配置
+    mysql_host: str = Field(default="localhost")
+    mysql_port: int = Field(default=3306)
+    mysql_user: str = Field(default="root")
+    mysql_password: str = Field(default="root")
+    mysql_database: str = Field(default="xianyu_data")
+    sync_driver: str = Field(default="mysql+pymysql")
+    async_driver: str = Field(default="mysql+asyncmy")
+
+    # 数据库连接池配置（账号数量较大时可通过环境变量调优）
+    # MySQL max_connections 必须大于所有服务进程的连接峰值总和并预留管理连接。
+    # 主服务默认峰值合计 2640；启用推广服务后为 3460，部署默认上限为 4000。
+    db_pool_size: int = Field(default=800, ge=600)   # 连接池容量，连接按需建立
+    db_max_overflow: int = Field(default=70)         # 允许的溢出连接数（峰值 = pool_size + max_overflow）
+    db_pool_timeout: int = Field(default=30)         # 从连接池获取连接的最长等待秒数
+    db_pool_recycle: int = Field(default=1800)       # 连接回收时间（秒），防止 MySQL 主动断开陈旧连接
+    db_pool_pre_ping: bool = Field(default=True)     # 取连接前 ping 一次，自动剔除失效连接
+    db_pool_use_lifo: bool = Field(default=True)     # LIFO 复用最近使用的连接，便于空闲连接被回收，降低对远程库的常驻连接数
+    db_connect_timeout: int = Field(default=10)      # 建立 TCP 连接的超时秒数，避免远程库不可达时无限阻塞
+    
+    # Redis配置（敏感信息请通过环境变量或.env文件配置）
+    redis_host: str = Field(default="localhost")
+    redis_port: int = Field(default=6379)
+    redis_password: str = Field(default="", repr=False)
+    redis_db: int = Field(default=0)
+    redis_pool_size: int = Field(default=800, alias="REDIS_POOL_SIZE", ge=600)
+    redis_socket_timeout: float = Field(
+        default=5.0, alias="REDIS_SOCKET_TIMEOUT", gt=0
+    )
+    redis_socket_connect_timeout: float = Field(
+        default=3.0, alias="REDIS_SOCKET_CONNECT_TIMEOUT", gt=0
+    )
+    redis_socket_keepalive: bool = Field(
+        default=True, alias="REDIS_SOCKET_KEEPALIVE"
+    )
+    redis_socket_keepalive_idle: int = Field(
+        default=60, alias="REDIS_SOCKET_KEEPALIVE_IDLE", ge=1
+    )
+    redis_socket_keepalive_interval: int = Field(
+        default=10, alias="REDIS_SOCKET_KEEPALIVE_INTERVAL", ge=1
+    )
+    redis_socket_keepalive_count: int = Field(
+        default=3, alias="REDIS_SOCKET_KEEPALIVE_COUNT", ge=1
+    )
+    redis_health_check_interval: int = Field(
+        default=30, alias="REDIS_HEALTH_CHECK_INTERVAL", ge=0
+    )
+    redis_protocol: int = Field(default=2, alias="REDIS_PROTOCOL", ge=2, le=3)
+    redis_startup_max_retries: int = Field(
+        default=5, alias="REDIS_STARTUP_MAX_RETRIES", ge=0, le=20
+    )
+    redis_startup_retry_base_delay: float = Field(
+        default=1.0, alias="REDIS_STARTUP_RETRY_BASE_DELAY", gt=0
+    )
+    redis_startup_retry_cap_delay: float = Field(
+        default=10.0, alias="REDIS_STARTUP_RETRY_CAP_DELAY", gt=0
+    )
+    
+    # JWT配置（用于安全模块）
+    # 注意：jwt_secret_key 由数据库统一托管（backend-web 启动时自动生成并持久化），
+    # 此处 default 仅作占位，运行期会被数据库中的值覆盖；请勿依赖环境变量配置该值。
+    jwt_secret_key: str = Field(default="change-me", repr=False)
+    jwt_algorithm: str = Field(default="HS256")
+    access_token_expire_minutes: int = Field(default=30)
+    refresh_token_expire_minutes: int = Field(default=60 * 24 * 7)
+
+    # 服务间调用 /internal 接口使用的共享令牌；留空时由启动流程从数据库自动加载或生成。
+    internal_api_token: str = Field(default="", alias="INTERNAL_API_TOKEN", repr=False)
+
+    # 服务监听地址：`::` 同时监听 IPv4 和 IPv6（dual-stack），
+    # 适用于 Linux/macOS；如需仅监听 IPv4 可设为 0.0.0.0
+    host: str = Field(default="::")
+
+    # 服务地址配置
+    websocket_service_url: str = Field(default="http://127.0.0.1:8001")
+
+    # 数据库备份文件目录（Docker 环境通过共享卷挂载，本地回退到 backups）
+    # 通过环境变量 BACKUP_DIR 配置，禁止写死 localhost / 绝对路径
+    backup_dir: str = Field(default="backups", alias="BACKUP_DIR")
+
+    # 静态文件目录（Docker 环境通过共享卷挂载，本地回退到 static）
+    # 通过环境变量 STATIC_DIR 配置，禁止写死绝对路径
+    static_dir: str = Field(default="static", alias="STATIC_DIR")
+
+    # IM Token 缓存（xy_token_cache 表）的基础随机过期时间区间（小时）。
+    # 基础 TTL 取值后还会追加 1~5 小时的秒级随机偏移，进一步分散到期时间。
+    # 未配置时基础区间默认 5~10 小时；配置非法（<=0 或 min>max）时回退默认。
+    token_cache_ttl_min_hours: float = Field(default=5.0, alias="TOKEN_CACHE_TTL_MIN_HOURS")
+    token_cache_ttl_max_hours: float = Field(default=10.0, alias="TOKEN_CACHE_TTL_MAX_HOURS")
+
+    # 滑块滑动方式由系统设置 captcha.slider_mode 管理，并在每次滑块任务前刷新。
+    # 真实鼠标方式仅适用于有图形桌面的 Windows 环境。
+
+    @property
+    def database_url(self) -> str:
+        """同步数据库连接URL"""
+        password = quote_plus(self.mysql_password)
+        host = f"[{self.mysql_host}]" if ":" in self.mysql_host else self.mysql_host
+        return f"{self.sync_driver}://{self.mysql_user}:{password}@{host}:{self.mysql_port}/{self.mysql_database}"
+
+    @property
+    def async_database_url(self) -> str:
+        """异步数据库连接URL"""
+        password = quote_plus(self.mysql_password)
+        host = f"[{self.mysql_host}]" if ":" in self.mysql_host else self.mysql_host
+        return f"{self.async_driver}://{self.mysql_user}:{password}@{host}:{self.mysql_port}/{self.mysql_database}"
+
+    @property
+    def redis_url(self) -> str:
+        """Redis连接URL"""
+        password = quote_plus(self.redis_password)
+        host = f"[{self.redis_host}]" if ":" in self.redis_host else self.redis_host
+        return f"redis://:{password}@{host}:{self.redis_port}/{self.redis_db}"
+
+
+@lru_cache
+def get_settings() -> BaseConfig:
+    """返回缓存的配置实例"""
+    return BaseConfig()

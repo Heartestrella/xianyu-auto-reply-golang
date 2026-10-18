@@ -1,0 +1,471 @@
+﻿/**
+ * 商品素材库页面
+ *
+ * 功能：
+ * 1. 分页展示所有商品素材
+ * 2. 新建/编辑/删除素材
+ * 3. 筛选（标题、分类、成色）
+ * 4. 勾选批量删除
+ * 5. 素材用于单品发布和批量发布
+ * 6. AI 铺货：批量生成素材（弹窗内配置与进度，进度由后端落库，刷新页面可恢复）
+ */
+import { useState, useEffect } from 'react'
+import { motion } from 'framer-motion'
+import { Plus, Pencil, Trash2, RefreshCw, Image, ChevronLeft, ChevronRight, Search, Sparkles, X, Repeat2 } from 'lucide-react'
+import { useUIStore } from '@/store/uiStore'
+import { useAuthStore } from '@/store/authStore'
+import { getMaterials, deleteMaterial, batchDeleteMaterials, type ProductMaterial } from '@/api/productPublish'
+import { PageLoading } from '@/components/common/Loading'
+import { ConfirmModal } from '@/components/common/ConfirmModal'
+import { MaterialFormModal } from './MaterialFormModal'
+import { AiListingModal } from './ai-listing/AiListingModal'
+import { AutoRelistModal } from './AutoRelistModal'
+import { useAiListingTask } from './ai-listing/useAiListingTask'
+
+const CONDITIONS = ['全新', '99新', '95新', '9成新', '8成新', '7成新以下']
+
+function getPlatformSummary(material: ProductMaterial): string[] {
+  return [
+    material.platform_category_path?.length ? `路径：${material.platform_category_path.map(item => item.name).filter(Boolean).join(' / ')}` : '',
+    material.platform_category_name && `分类：${material.platform_category_name}`,
+    material.platform_channel_category_name && `频道：${material.platform_channel_category_name}`,
+    material.platform_leaf_id && `叶子ID：${material.platform_leaf_id}`,
+    material.platform_tb_category_id && `淘宝ID：${material.platform_tb_category_id}`,
+  ].filter((value): value is string => Boolean(value))
+}
+
+export function ProductMaterials() {
+  const { addToast } = useUIStore()
+  const { user } = useAuthStore()
+  const isAdmin = Boolean(user?.is_admin)
+  const [loading, setLoading] = useState(true)
+  const [tableLoading, setTableLoading] = useState(false)
+  const [materials, setMaterials] = useState<ProductMaterial[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+  const [totalPages, setTotalPages] = useState(0)
+  const [showModal, setShowModal] = useState(false)
+  const [editTarget, setEditTarget] = useState<ProductMaterial | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; item: ProductMaterial | null }>({ open: false, item: null })
+  const [deleting, setDeleting] = useState(false)
+
+  // 筛选状态
+  const [filterTitle, setFilterTitle] = useState('')
+  const [filterCategory, setFilterCategory] = useState('')
+  const [filterCondition, setFilterCondition] = useState('')
+  const [filterPlatformCategoryId, setFilterPlatformCategoryId] = useState('')
+
+  // 批量选择状态
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
+  const [batchDeleteConfirm, setBatchDeleteConfirm] = useState(false)
+  const [batchDeleting, setBatchDeleting] = useState(false)
+
+  // AI 铺货
+  const [showAiModal, setShowAiModal] = useState(false)
+  const [relistTarget, setRelistTarget] = useState<ProductMaterial | null>(null)
+
+  /** 加载素材列表 */
+  const load = async (p = page, size = pageSize) => {
+    setTableLoading(true)
+    try {
+      const filters: { title?: string; category?: string; condition?: string; platform_category_id?: string } = {}
+      if (filterTitle.trim()) filters.title = filterTitle.trim()
+      if (filterCategory) filters.category = filterCategory
+      if (filterCondition) filters.condition = filterCondition
+      if (filterPlatformCategoryId.trim()) filters.platform_category_id = filterPlatformCategoryId.trim()
+      const res = await getMaterials(p, size, Object.keys(filters).length > 0 ? filters : undefined)
+      if (res.success) {
+        setMaterials(res.data.list)
+        setTotal(res.data.total)
+        setTotalPages(res.data.total_pages)
+        // 清除不在当前页的选中项
+        const currentIds = new Set(res.data.list.map(m => m.id))
+        setSelectedIds(prev => prev.filter(id => currentIds.has(id)))
+      } else {
+        addToast({ type: 'error', message: res.message || '加载失败' })
+      }
+    } catch {
+      addToast({ type: 'error', message: '网络错误，请重试' })
+    } finally {
+      setLoading(false)
+      setTableLoading(false)
+    }
+  }
+
+  useEffect(() => { load(page, pageSize) }, [page, pageSize])
+
+  // AI 铺货任务进度（轮询放在页面级，关闭弹窗后按钮徽章仍会更新）
+  const aiTask = useAiListingTask({
+    onFinished: (task) => {
+      addToast({
+        type: task.failed === 0 && task.success > 0 ? 'success' : 'warning',
+        message: `AI 铺货结束：成功 ${task.success} 条，失败 ${task.failed} 条`,
+      })
+      load(page, pageSize)
+    },
+  })
+
+  // 进入页面时恢复上次未结束的铺货任务
+  useEffect(() => { void aiTask.restoreTracking() }, [aiTask.restoreTracking])
+
+  const aiRunning = Boolean(aiTask.task && !aiTask.task.finished)
+
+  /** 执行筛选 */
+  const handleFilter = () => {
+    setPage(1)
+    setSelectedIds([])
+    load(1, pageSize)
+  }
+
+  /** 重置筛选 */
+  const handleResetFilter = () => {
+    setFilterTitle('')
+    setFilterCategory('')
+    setFilterCondition('')
+    setFilterPlatformCategoryId('')
+    setPage(1)
+    setSelectedIds([])
+    // 直接用空筛选加载
+    setTableLoading(true)
+    getMaterials(1, pageSize).then(res => {
+      if (res.success) {
+        setMaterials(res.data.list)
+        setTotal(res.data.total)
+        setTotalPages(res.data.total_pages)
+        setSelectedIds([])
+      }
+    }).catch(() => {
+      addToast({ type: 'error', message: '加载失败' })
+    }).finally(() => {
+      setLoading(false)
+      setTableLoading(false)
+    })
+  }
+
+  /** 确认删除单条 */
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirm.item) return
+    setDeleting(true)
+    try {
+      const res = await deleteMaterial(deleteConfirm.item.id)
+      if (res.success) {
+        addToast({ type: 'success', message: '素材已移出素材库' })
+        setDeleteConfirm({ open: false, item: null })
+        setSelectedIds(prev => prev.filter(id => id !== deleteConfirm.item!.id))
+        load(page, pageSize)
+      } else {
+        addToast({ type: 'error', message: res.message || '删除失败' })
+      }
+    } catch {
+      addToast({ type: 'error', message: '删除失败，请重试' })
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  /** 批量删除 */
+  const handleBatchDelete = async () => {
+    if (selectedIds.length === 0) return
+    setBatchDeleting(true)
+    try {
+      const res = await batchDeleteMaterials(selectedIds)
+      if (res.success) {
+        addToast({ type: 'success', message: res.message || `已移出 ${selectedIds.length} 条素材` })
+        setBatchDeleteConfirm(false)
+        setSelectedIds([])
+        load(page, pageSize)
+      } else {
+        addToast({ type: 'error', message: res.message || '批量删除失败' })
+      }
+    } catch {
+      addToast({ type: 'error', message: '批量删除失败，请重试' })
+    } finally {
+      setBatchDeleting(false)
+    }
+  }
+
+  /** 全选/取消全选当前页 */
+  const handleSelectAll = () => {
+    if (materials.length === 0) return
+    const currentPageIds = materials.map(m => m.id)
+    const allSelected = currentPageIds.every(id => selectedIds.includes(id))
+    if (allSelected) {
+      setSelectedIds(prev => prev.filter(id => !currentPageIds.includes(id)))
+    } else {
+      setSelectedIds(prev => [...new Set([...prev, ...currentPageIds])])
+    }
+  }
+
+  /** 切换单条选中 */
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    )
+  }
+
+  const allCurrentSelected = materials.length > 0 && materials.every(m => selectedIds.includes(m.id))
+
+  const handlePageSizeChange = (size: number) => { setPageSize(size); setPage(1) }
+
+  if (loading) return <PageLoading />
+
+  return (
+    <div className="space-y-3 sm:space-y-4">
+      {/* 标题栏 */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="page-title">商品素材库</h1>
+          <p className="page-description">管理商品素材，用于单品发布和批量发布</p>
+        </div>
+        <div className="flex gap-2">
+          {selectedIds.length > 0 && (
+            <button className="btn-ios-danger" onClick={() => setBatchDeleteConfirm(true)}>
+              <Trash2 className="w-4 h-4" />批量删除 ({selectedIds.length})
+            </button>
+          )}
+          <button className="btn-ios-secondary" onClick={() => load(page, pageSize)} disabled={tableLoading}>
+            <RefreshCw className={`w-4 h-4 ${tableLoading ? 'animate-spin' : ''}`} />刷新
+          </button>
+          <button className="btn-ios-secondary" onClick={() => setShowAiModal(true)}>
+            <Sparkles className="w-4 h-4" />AI 铺货
+            {aiRunning && aiTask.task && (
+              <span className="badge-info ml-1">
+                生成中 {aiTask.task.success + aiTask.task.failed}/{aiTask.task.total}
+              </span>
+            )}
+          </button>
+          <button className="btn-ios-primary" onClick={() => { setEditTarget(null); setShowModal(true) }}>
+            <Plus className="w-4 h-4" />新建素材
+          </button>
+        </div>
+      </div>
+
+      {/* 筛选栏 */}
+      <div className="vben-card">
+        <div className="vben-card-body py-3 px-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <input
+                className="input-ios w-48"
+                placeholder="搜索标题..."
+                value={filterTitle}
+                onChange={e => setFilterTitle(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleFilter()}
+              />
+            </div>
+            <input className="input-ios w-40" placeholder="本地分类..." value={filterCategory} onChange={e => setFilterCategory(e.target.value)} />
+            <input className="input-ios w-40" placeholder="平台分类ID..." value={filterPlatformCategoryId} onChange={e => setFilterPlatformCategoryId(e.target.value)} />
+            <select
+              className="input-ios w-28"
+              value={filterCondition}
+              onChange={e => { setFilterCondition(e.target.value); }}
+            >
+              <option value="">全部成色</option>
+              {CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <button className="btn-ios-primary btn-sm" onClick={handleFilter}>
+              <Search className="w-3.5 h-3.5" />查询
+            </button>
+            {(filterTitle || filterCategory || filterCondition || filterPlatformCategoryId) && (
+              <button className="btn-ios-secondary btn-sm" onClick={handleResetFilter}>
+                <X className="w-3.5 h-3.5" />重置
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 表格卡片 */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+        className="vben-card flex flex-col"
+        style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}
+      >
+        <div className="vben-card-header">
+          <h2 className="vben-card-title"><Image className="w-4 h-4" />素材列表</h2>
+          <span className="badge-primary">共 {total} 条</span>
+        </div>
+        <div className="table-scroll flex-1">
+          <table className="table-ios">
+            <thead className="sticky top-0 bg-white dark:bg-slate-800 z-10">
+              <tr>
+                <th className="w-10">
+                  <input
+                    type="checkbox"
+                    checked={allCurrentSelected}
+                    onChange={handleSelectAll}
+                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                </th>
+                {isAdmin && <th>所属用户</th>}
+                <th>标题</th>
+                <th>价格</th>
+                <th>分类</th>
+                <th>平台分类</th>
+                <th>成色</th>
+                <th>媒体</th>
+                <th>创建时间</th>
+                <th>自动续售</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tableLoading ? (
+                <tr><td colSpan={isAdmin ? 11 : 10} className="text-center py-12">
+                  <RefreshCw className="w-6 h-6 animate-spin text-blue-500 mx-auto" />
+                </td></tr>
+              ) : materials.length === 0 ? (
+                <tr><td colSpan={isAdmin ? 11 : 10} className="text-center py-12 text-slate-400">
+                  <div className="flex flex-col items-center gap-2">
+                    <Image className="w-12 h-12 text-slate-300" />
+                    <p>暂无素材，点击「新建素材」添加</p>
+                  </div>
+                </td></tr>
+              ) : materials.map(m => (
+                <tr key={m.id} className={selectedIds.includes(m.id) ? 'bg-blue-50 dark:bg-blue-900/10' : ''}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(m.id)}
+                      onChange={() => toggleSelect(m.id)}
+                      className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                  </td>
+                  {isAdmin && (
+                    <td className="text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                      {m.username || '-'}
+                    </td>
+                  )}
+                  <td className="max-w-[200px]">
+                    <span className="truncate block font-medium text-slate-800 dark:text-slate-100" title={m.title}>{m.title}</span>
+                  </td>
+                  <td>
+                    <span className="text-amber-600 font-medium">{m.price}</span>
+                    {m.original_price && (
+                      <span className="text-xs text-slate-400 line-through ml-1">{m.original_price}</span>
+                    )}
+                  </td>
+                  <td className="text-slate-500">{m.category || '-'}</td>
+                  <td className="max-w-[180px]">
+                    {getPlatformSummary(m).length > 0 ? getPlatformSummary(m).map((item) => <span key={item} className="block truncate text-slate-700 dark:text-slate-200" title={item}>{item}</span>) : <span className="text-slate-400">-</span>}
+                    {m.platform_category_id && <span className="block text-xs text-slate-400 truncate" title={m.platform_category_id}>分类ID：{m.platform_category_id}</span>}
+                  </td>
+                  <td><span className="badge-gray">{m.condition}</span></td>
+                  <td><span className="badge-info">{(m.images || []).length} 图 / {(m.videos || []).length} 视频</span></td>
+                  <td className="text-sm text-slate-500 whitespace-nowrap">
+                    {m.created_at ? new Date(m.created_at).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '-'}
+                  </td>
+                  <td>
+                    <div className="flex items-center gap-1">
+                      <span className={`badge-${m.auto_relist?.status === 'active' ? 'success' : m.auto_relist ? 'warning' : 'gray'}`}>
+                        {m.auto_relist ? (m.auto_relist.status_text || m.auto_relist.status) : '未配置'}
+                      </span>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="table-actions">
+                      <button className="table-action-btn" title={m.auto_relist_can_configure === false ? '管理员只读，查看自动续售' : '自动续售'}
+                        onClick={() => setRelistTarget(m)}>
+                        <Repeat2 className={`w-4 h-4 ${m.auto_relist_can_configure === false ? 'text-slate-300' : 'text-emerald-500'}`} />
+                      </button>
+                      <button className="table-action-btn" title="编辑"
+                        onClick={() => { setEditTarget(m); setShowModal(true) }}>
+                        <Pencil className="w-4 h-4 text-blue-500" />
+                      </button>
+                      <button className="table-action-btn" title="删除"
+                        onClick={() => setDeleteConfirm({ open: true, item: m })}>
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* 分页 */}
+        {total > 0 && (
+          <div className="flex-shrink-0 flex flex-col sm:flex-row items-center justify-between px-4 py-3 border-t border-slate-200 dark:border-slate-700 gap-3">
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <span>每页</span>
+              <select value={pageSize} onChange={e => handlePageSizeChange(Number(e.target.value))}
+                className="px-2 py-1 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value={10}>10 条</option>
+                <option value={20}>20 条</option>
+                <option value={50}>50 条</option>
+                <option value={100}>100 条</option>
+              </select>
+              <span>共 {total} 条</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-500">第 {page} / {totalPages} 页</span>
+              <button onClick={() => setPage(p => p - 1)} disabled={page <= 1 || tableLoading}
+                className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button onClick={() => setPage(p => p + 1)} disabled={page >= totalPages || tableLoading}
+                className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </motion.div>
+
+      {/* 新建/编辑弹窗 */}
+      {showModal && (
+        <MaterialFormModal
+          initial={editTarget}
+          onClose={() => setShowModal(false)}
+          onSaved={() => { setShowModal(false); load(page, pageSize) }}
+        />
+      )}
+
+      {/* AI 铺货弹窗 */}
+      {showAiModal && (
+        <AiListingModal
+          task={aiTask.task}
+          onStartTracking={aiTask.startTracking}
+          onResetTask={aiTask.resetTask}
+          onClose={() => setShowAiModal(false)}
+        />
+      )}
+
+      {relistTarget && (
+        <AutoRelistModal
+          material={relistTarget}
+          onClose={() => setRelistTarget(null)}
+          onSaved={() => { setRelistTarget(null); load(page, pageSize) }}
+        />
+      )}
+
+      {/* 删除确认弹窗 */}
+      <ConfirmModal
+        isOpen={deleteConfirm.open}
+        title="确认删除"
+        message={`确认将素材「${deleteConfirm.item?.title ?? ''}」移出素材库吗？历史发布日志不会受影响。`}
+        confirmText="移出素材库"
+        type="danger"
+        loading={deleting}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteConfirm({ open: false, item: null })}
+      />
+
+      {/* 批量删除确认弹窗 */}
+      <ConfirmModal
+        isOpen={batchDeleteConfirm}
+        title="确认批量移出"
+        message={`确认将选中的 ${selectedIds.length} 条素材移出素材库吗？历史发布日志不会受影响。`}
+        confirmText={`移出 ${selectedIds.length} 条`}
+        type="danger"
+        loading={batchDeleting}
+        onConfirm={handleBatchDelete}
+        onCancel={() => setBatchDeleteConfirm(false)}
+      />
+    </div>
+  )
+}
+
+export default ProductMaterials
