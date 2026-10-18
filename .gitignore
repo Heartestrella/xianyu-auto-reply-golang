@@ -8,6 +8,7 @@
 **/.env
 **/.env.local
 **/.env.*.local
+**/.env
 **/.env.development
 **/.env.production
 **/*cookie*.txt

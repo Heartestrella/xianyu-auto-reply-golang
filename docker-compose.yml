@@ -1,11 +1,11 @@
 services:
   xianyu:
-    build: .
+    image: ${IMAGE:-ghcr.io/heartestrella/xianyu-auto-reply-golang:latest}
     container_name: xianyu-go
     restart: unless-stopped
     environment:
       TZ: Asia/Shanghai
-      JWT_SECRET: ${JWT_SECRET:-please-change-this-secret}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env before starting}
     ports:
       - "${PORT:-9000}:8089"
     volumes:
