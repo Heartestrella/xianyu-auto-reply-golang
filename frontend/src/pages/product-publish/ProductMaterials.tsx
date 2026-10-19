@@ -1,4 +1,5 @@
-﻿/**
+import { formatDateTime } from '@/utils/date'
+/**
  * 商品素材库页面
  *
  * 功能：
@@ -354,7 +355,7 @@ export function ProductMaterials() {
                   <td><span className="badge-gray">{m.condition}</span></td>
                   <td><span className="badge-info">{(m.images || []).length} 图 / {(m.videos || []).length} 视频</span></td>
                   <td className="text-sm text-slate-500 whitespace-nowrap">
-                    {m.created_at ? new Date(m.created_at).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '-'}
+                    {m.created_at ? formatDateTime(m.created_at) : '-'}
                   </td>
                   <td>
                     <div className="flex items-center gap-1">

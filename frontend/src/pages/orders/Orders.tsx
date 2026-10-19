@@ -1,3 +1,4 @@
+import { formatDateTime, formatPlatformDateTime } from '@/utils/date'
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { ShoppingCart, RefreshCw, Search, Trash2, Eye, X, Send, Loader2, Settings, Filter, Ban } from 'lucide-react'
@@ -828,13 +829,13 @@ export function Orders() {
                           case 'placed_at':
                             return (
                               <td key={col.key} className="whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
-                                {order.placed_at ? new Date(order.placed_at).toLocaleString('zh-CN') : '-'}
+                                {order.placed_at ? formatPlatformDateTime(order.placed_at) : '-'}
                               </td>
                             )
                           case 'created_at':
                             return (
                               <td key={col.key} className="whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
-                                {order.created_at ? new Date(order.created_at).toLocaleString('zh-CN') : '-'}
+                                {order.created_at ? formatDateTime(order.created_at) : '-'}
                               </td>
                             )
                           default:
@@ -1138,15 +1139,15 @@ export function Orders() {
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div className="flex justify-between py-1 border-b border-gray-100 dark:border-gray-700">
                         <span className="text-gray-500">订单时间</span>
-                        <span>{orderDetail.placed_at ? new Date(orderDetail.placed_at).toLocaleString('zh-CN') : '未知'}</span>
+                        <span>{orderDetail.placed_at ? formatPlatformDateTime(orderDetail.placed_at) : '未知'}</span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-gray-100 dark:border-gray-700">
                         <span className="text-gray-500">创建时间</span>
-                        <span>{orderDetail.created_at ? new Date(orderDetail.created_at).toLocaleString('zh-CN') : '未知'}</span>
+                        <span>{orderDetail.created_at ? formatDateTime(orderDetail.created_at) : '未知'}</span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-gray-100 dark:border-gray-700">
                         <span className="text-gray-500">更新时间</span>
-                        <span>{orderDetail.updated_at ? new Date(orderDetail.updated_at).toLocaleString('zh-CN') : '未知'}</span>
+                        <span>{orderDetail.updated_at ? formatDateTime(orderDetail.updated_at) : '未知'}</span>
                       </div>
                     </div>
                   </div>

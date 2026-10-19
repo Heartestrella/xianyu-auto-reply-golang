@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/date'
 /**
  * 分销商管理页面
  * 
@@ -175,7 +176,7 @@ export function DealerManagement() {
                         </td>
                         <td className="text-sm text-gray-500 whitespace-nowrap">
                           {dealer.last_dock_time
-                            ? new Date(dealer.last_dock_time).toLocaleString('zh-CN')
+                            ? formatDateTime(dealer.last_dock_time)
                             : '-'}
                         </td>
                         <td>

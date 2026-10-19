@@ -1,3 +1,4 @@
+import { formatDateTime, getServerDateInputValue } from '@/utils/date'
 /**
  * 账号登录日志页面
  *
@@ -95,7 +96,7 @@ export function AccountLoginLogs() {
   const [selectedAccount, setSelectedAccount] = useState('')
 
   // 时间筛选 - 默认当天
-  const today = new Date().toISOString().split('T')[0]
+  const today = getServerDateInputValue()
   const [startDate, setStartDate] = useState(today)
   const [endDate, setEndDate] = useState(today)
 
@@ -434,7 +435,7 @@ export function AccountLoginLogs() {
                         {renderDuration(log.duration_ms)}
                       </td>
                       <td className="text-slate-500 dark:text-slate-400 text-sm whitespace-nowrap">
-                        {new Date(log.created_at).toLocaleString()}
+                        {formatDateTime(log.created_at)}
                       </td>
                     </tr>
                   )

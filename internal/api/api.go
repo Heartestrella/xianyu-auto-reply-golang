@@ -574,6 +574,10 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 }
 func current(r *http.Request) User { return r.Context().Value(userKey{}).(User) }
 func write(w http.ResponseWriter, status int, v any) {
+	now := time.Now()
+	_, offset := now.Zone()
+	w.Header().Set("X-Server-Time", now.Format(time.RFC3339))
+	w.Header().Set("X-Server-UTC-Offset", strconv.Itoa(offset/60))
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "private, no-store")
 	w.WriteHeader(status)

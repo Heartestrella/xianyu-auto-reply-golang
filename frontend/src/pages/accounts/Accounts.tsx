@@ -1,3 +1,4 @@
+import { getServerDateInputValue } from '@/utils/date'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -1018,7 +1019,7 @@ export function Accounts() {
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `账号导出_${new Date().toISOString().slice(0, 10)}.xlsx`
+      a.download = `账号导出_${getServerDateInputValue()}.xlsx`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)

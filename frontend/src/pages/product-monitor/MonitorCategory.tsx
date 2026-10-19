@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/date'
 /**
  * 商品监控 - 监控分类 页面
  *
@@ -185,10 +186,10 @@ export function MonitorCategory() {
                     <td className="whitespace-nowrap text-slate-500 dark:text-slate-400">#{item.id}</td>
                     <td className="font-medium text-slate-800 dark:text-slate-100">{item.name}</td>
                     <td className="whitespace-nowrap text-slate-500 dark:text-slate-400">
-                      {item.created_at ? new Date(item.created_at).toLocaleString('zh-CN') : '-'}
+                      {item.created_at ? formatDateTime(item.created_at) : '-'}
                     </td>
                     <td className="whitespace-nowrap text-slate-500 dark:text-slate-400">
-                      {item.updated_at ? new Date(item.updated_at).toLocaleString('zh-CN') : '-'}
+                      {item.updated_at ? formatDateTime(item.updated_at) : '-'}
                     </td>
                     <td className="whitespace-nowrap">
                       <div className="flex items-center gap-1">

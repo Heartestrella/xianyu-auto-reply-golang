@@ -59,11 +59,11 @@ func (s *Server) dbBackupLogs(w http.ResponseWriter, r *http.Request) {
 		args = append(args, status)
 	}
 	if start := r.URL.Query().Get("start_date"); start != "" {
-		where += " AND created_at>=?"
+		where += " AND datetime(created_at,'localtime')>=?"
 		args = append(args, start+" 00:00:00")
 	}
 	if end := r.URL.Query().Get("end_date"); end != "" {
-		where += " AND created_at<=?"
+		where += " AND datetime(created_at,'localtime')<=?"
 		args = append(args, end+" 23:59:59")
 	}
 	var total int

@@ -251,7 +251,7 @@ func (s *Server) adminRecharge(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) adminStats(w http.ResponseWriter, r *http.Request) {
 	out := map[string]any{"success": true}
-	queries := map[string]string{"total_users": `SELECT count(*) FROM xy_users`, "total_cookies": `SELECT count(*) FROM xy_accounts`, "active_cookies": `SELECT count(*) FROM xy_accounts WHERE status='active'`, "total_cards": `SELECT count(*) FROM cards`, "total_keywords": `SELECT count(*) FROM xy_keyword_rules`, "total_orders": `SELECT count(*) FROM xy_orders`, "today_reply_count": `SELECT count(*) FROM event_logs WHERE kind='auto_reply' AND date(created_at)=date('now','localtime')`, "yesterday_reply_count": `SELECT count(*) FROM event_logs WHERE kind='auto_reply' AND date(created_at)=date('now','localtime','-1 day')`}
+	queries := map[string]string{"total_users": `SELECT count(*) FROM xy_users`, "total_cookies": `SELECT count(*) FROM xy_accounts`, "active_cookies": `SELECT count(*) FROM xy_accounts WHERE status='active'`, "total_cards": `SELECT count(*) FROM cards`, "total_keywords": `SELECT count(*) FROM xy_keyword_rules`, "total_orders": `SELECT count(*) FROM xy_orders`, "today_reply_count": `SELECT count(*) FROM event_logs WHERE kind='auto_reply' AND date(created_at,'localtime')=date('now','localtime')`, "yesterday_reply_count": `SELECT count(*) FROM event_logs WHERE kind='auto_reply' AND date(created_at,'localtime')=date('now','localtime','-1 day')`}
 	for k, q := range queries {
 		var n int
 		_ = s.db.QueryRowContext(r.Context(), q).Scan(&n)
@@ -274,7 +274,7 @@ func (s *Server) adminStats(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) todayStats(w http.ResponseWriter, r *http.Request) {
 	out := map[string]any{"success": true}
-	for k, q := range map[string]string{"today_users": `SELECT count(*) FROM xy_users WHERE date(created_at)=date('now','localtime')`, "today_accounts": `SELECT count(*) FROM xy_accounts WHERE date(created_at)=date('now','localtime')`, "today_orders": `SELECT count(*) FROM xy_orders WHERE date(created_at)=date('now','localtime')`, "today_shipped": `SELECT count(*) FROM xy_orders WHERE status='shipped' AND date(updated_at)=date('now','localtime')`, "today_pending": `SELECT count(*) FROM xy_orders WHERE status='pending_ship' AND date(created_at)=date('now','localtime')`} {
+	for k, q := range map[string]string{"today_users": `SELECT count(*) FROM xy_users WHERE date(created_at,'localtime')=date('now','localtime')`, "today_accounts": `SELECT count(*) FROM xy_accounts WHERE date(created_at,'localtime')=date('now','localtime')`, "today_orders": `SELECT count(*) FROM xy_orders WHERE date(created_at,'localtime')=date('now','localtime')`, "today_shipped": `SELECT count(*) FROM xy_orders WHERE status='shipped' AND date(updated_at,'localtime')=date('now','localtime')`, "today_pending": `SELECT count(*) FROM xy_orders WHERE status='pending_ship' AND date(created_at,'localtime')=date('now','localtime')`} {
 		var n int
 		_ = s.db.QueryRowContext(r.Context(), q).Scan(&n)
 		out[k] = n
@@ -288,19 +288,48 @@ func (s *Server) adminLogs(w http.ResponseWriter, r *http.Request) {
 	if lines < 1 || lines > 5000 {
 		lines = 200
 	}
-	rows, e := s.db.QueryContext(r.Context(), `SELECT created_at,level,kind,message FROM event_logs ORDER BY id DESC LIMIT ?`, lines)
+	query := `SELECT id,created_at,level,kind,COALESCE(message,'') FROM event_logs WHERE 1=1`
+	args := []any{}
+	if level := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("level"))); level != "" {
+		if level == "WARNING" {
+			level = "WARN"
+		}
+		query += ` AND upper(level) IN (?,?)`
+		other := level
+		if level == "WARN" {
+			other = "WARNING"
+		}
+		args = append(args, level, other)
+	}
+	args = append(args, lines)
+	rows, e := s.db.QueryContext(r.Context(), query+` ORDER BY id DESC LIMIT ?`, args...)
 	if e != nil {
 		fail(w, 500, e.Error())
 		return
 	}
 	defer rows.Close()
 	logs := []string{}
+	items := []map[string]any{}
 	for rows.Next() {
+		var id int64
 		var t, l, k, m string
-		_ = rows.Scan(&t, &l, &k, &m)
-		logs = append(logs, fmt.Sprintf("%s %s [%s] %s", t, l, k, m))
+		if err := rows.Scan(&id, &t, &l, &k, &m); err != nil {
+			fail(w, 500, err.Error())
+			return
+		}
+		local := databaseTimeInServerZone(t)
+		logs = append(logs, fmt.Sprintf("%s %s [%s] %s", local, l, k, m))
+		level := strings.ToLower(l)
+		if level == "warn" {
+			level = "warning"
+		}
+		items = append(items, map[string]any{"id": fmt.Sprint(id), "created_at": local, "level": level, "module": k, "message": m})
 	}
-	write(w, 200, map[string]any{"logs": logs, "total": len(logs)})
+	if err := rows.Err(); err != nil {
+		fail(w, 500, err.Error())
+		return
+	}
+	write(w, 200, map[string]any{"success": true, "data": items, "logs": logs, "total": len(logs)})
 }
 func (s *Server) adminLogsClear(w http.ResponseWriter, r *http.Request) {
 	_, e := s.db.ExecContext(r.Context(), `DELETE FROM event_logs`)
@@ -349,7 +378,7 @@ func (s *Server) adminLogsExport(w http.ResponseWriter, r *http.Request) {
 		var id int64
 		var created, level, kind, account, message, data string
 		if rows.Scan(&id, &created, &level, &kind, &account, &message, &data) == nil {
-			_ = writer.Write([]string{fmt.Sprint(id), created, level, kind, account, message, data})
+			_ = writer.Write([]string{fmt.Sprint(id), databaseTimeInServerZone(created), level, kind, account, message, data})
 		}
 	}
 	writer.Flush()

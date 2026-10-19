@@ -79,11 +79,11 @@ func limitOffset(r *http.Request) (int, int) {
 
 func appendDateFilters(r *http.Request, query string, args []any) (string, []any) {
 	if start := strings.TrimSpace(r.URL.Query().Get("start_date")); start != "" {
-		query += ` AND date(created_at)>=date(?)`
+		query += ` AND date(created_at,'localtime')>=date(?)`
 		args = append(args, start)
 	}
 	if end := strings.TrimSpace(r.URL.Query().Get("end_date")); end != "" {
-		query += ` AND date(created_at)<=date(?)`
+		query += ` AND date(created_at,'localtime')<=date(?)`
 		args = append(args, end)
 	}
 	return query, args
@@ -137,11 +137,11 @@ func (s *Server) autoReplyLogs(w http.ResponseWriter, r *http.Request) {
 		args = append(args, accountID)
 	}
 	if start := strings.TrimSpace(r.URL.Query().Get("start_date")); start != "" {
-		query += ` AND date(created_at)>=date(?)`
+		query += ` AND date(created_at,'localtime')>=date(?)`
 		args = append(args, start)
 	}
 	if end := strings.TrimSpace(r.URL.Query().Get("end_date")); end != "" {
-		query += ` AND date(created_at)<=date(?)`
+		query += ` AND date(created_at,'localtime')<=date(?)`
 		args = append(args, end)
 	}
 	var total int

@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/date'
 /**
  * 代理订单明细弹窗
  *
@@ -223,10 +224,10 @@ export function AgentOrderDetailModal({ orderId, onClose }: Props) {
                 </h4>
                 <div className="bg-slate-50 dark:bg-slate-700/30 rounded-lg px-4">
                   <DetailRow label="创建时间" value={
-                    detail.created_at ? new Date(detail.created_at).toLocaleString('zh-CN') : '-'
+                    detail.created_at ? formatDateTime(detail.created_at) : '-'
                   } />
                   <DetailRow label="更新时间" value={
-                    detail.updated_at ? new Date(detail.updated_at).toLocaleString('zh-CN') : '-'
+                    detail.updated_at ? formatDateTime(detail.updated_at) : '-'
                   } />
                 </div>
               </div>

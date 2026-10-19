@@ -27,11 +27,11 @@ func (s *Server) faceVerificationNotifications(w http.ResponseWriter, r *http.Re
 		args = append(args, accountID)
 	}
 	if start := strings.TrimSpace(r.URL.Query().Get("start_date")); start != "" {
-		query += ` AND date(e.created_at)>=date(?)`
+		query += ` AND date(e.created_at,'localtime')>=date(?)`
 		args = append(args, start)
 	}
 	if end := strings.TrimSpace(r.URL.Query().Get("end_date")); end != "" {
-		query += ` AND date(e.created_at)<=date(?)`
+		query += ` AND date(e.created_at,'localtime')<=date(?)`
 		args = append(args, end)
 	}
 	var total int

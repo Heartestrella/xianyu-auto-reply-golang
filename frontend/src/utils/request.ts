@@ -1,5 +1,6 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore } from '@/store/authStore'
+import { configureServerTime } from '@/utils/date'
 
 type RetriableRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean }
 
@@ -154,6 +155,7 @@ request.interceptors.request.use(
 // 响应拦截器
 request.interceptors.response.use(
   async (response: AxiosResponse) => {
+    configureServerTime(response.headers['x-server-time'], response.headers['x-server-utc-offset'])
     // 后端按项目规范将鉴权异常也包装为 HTTP 200，因此需同时检查响应体 code。
     if (isUnauthorizedBusinessResponse(response.data)) {
       return retryAfterTokenRefresh(response.config as RetriableRequestConfig, response.data)

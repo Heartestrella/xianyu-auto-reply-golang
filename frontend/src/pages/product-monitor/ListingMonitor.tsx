@@ -1,4 +1,5 @@
-﻿/**
+import { formatDateTime } from '@/utils/date'
+/**
  * 上新监控页面
  *
  * 功能：
@@ -469,7 +470,7 @@ export function ListingMonitor() {
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400">已停用</span>
                       )}
                     </td>
-                    <td className="whitespace-nowrap text-slate-500 dark:text-slate-400">{item.updated_at ? new Date(item.updated_at).toLocaleString('zh-CN') : '-'}</td>
+                    <td className="whitespace-nowrap text-slate-500 dark:text-slate-400">{item.updated_at ? formatDateTime(item.updated_at) : '-'}</td>
                     <td className="whitespace-nowrap">
                       <div className="flex items-center gap-1">
                         <button

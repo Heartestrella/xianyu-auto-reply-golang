@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/date'
 /**
  * 个人资金流水弹窗
  *
@@ -235,7 +236,7 @@ export function FundFlowModal({ visible, onClose }: Props) {
                         <span className="text-sm text-gray-500 truncate block">{flow.description || '-'}</span>
                       </td>
                       <td className="text-sm text-gray-500 whitespace-nowrap">
-                        {flow.created_at ? new Date(flow.created_at).toLocaleString('zh-CN') : '-'}
+                        {flow.created_at ? formatDateTime(flow.created_at) : '-'}
                       </td>
                     </tr>
                   ))

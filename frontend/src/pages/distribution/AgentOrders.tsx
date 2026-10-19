@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/date'
 /**
  * 代理订单页面
  * 
@@ -317,7 +318,7 @@ export function AgentOrders() {
                       </td>
                       <td className="whitespace-nowrap text-xs text-slate-500">
                         {order.created_at
-                          ? new Date(order.created_at).toLocaleString('zh-CN')
+                          ? formatDateTime(order.created_at)
                           : '-'}
                       </td>
                       <td className="whitespace-nowrap sticky right-0 bg-white dark:bg-slate-900 z-10">
