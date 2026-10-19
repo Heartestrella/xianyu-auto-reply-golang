@@ -242,11 +242,18 @@ func nullableInt(value int64) any {
 }
 
 func materialRecord(id, owner int64, title, description, price string, category sql.NullString, raw, created, updated string) map[string]any {
-	m := map[string]any{"id": id, "user_id": owner, "title": title, "description": description, "price": smart(price), "category": nil, "created_at": created, "updated_at": updated}
+	m := map[string]any{}
+	mergeJSON(m, raw)
+	m["id"], m["user_id"], m["title"], m["description"] = id, owner, title, description
+	m["price"], m["category"], m["created_at"], m["updated_at"] = smart(price), nil, created, updated
 	if category.Valid {
 		m["category"] = category.String
 	}
-	mergeJSON(m, raw)
+	for _, key := range []string{"images", "videos", "specifications", "sku_rows", "platform_category_path", "platform_attributes"} {
+		if _, ok := m[key].([]any); !ok {
+			m[key] = []any{}
+		}
+	}
 	return m
 }
 
@@ -271,7 +278,10 @@ func (s *Server) materialList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	var total int
-	_ = s.db.QueryRowContext(r.Context(), `SELECT count(*)`+query, args...).Scan(&total)
+	if err := s.db.QueryRowContext(r.Context(), `SELECT count(*)`+query, args...).Scan(&total); err != nil {
+		fail(w, 500, err.Error())
+		return
+	}
 	args = append(args, size, (p-1)*size)
 	rows, err := s.db.QueryContext(r.Context(), `SELECT id,owner_id,title,description,price,category,data,created_at,updated_at`+query+` ORDER BY id DESC LIMIT ? OFFSET ?`, args...)
 	if err != nil {
@@ -284,11 +294,17 @@ func (s *Server) materialList(w http.ResponseWriter, r *http.Request) {
 		var id, owner int64
 		var title, description, price, raw, created, updated string
 		var category sql.NullString
-		if rows.Scan(&id, &owner, &title, &description, &price, &category, &raw, &created, &updated) == nil {
-			items = append(items, materialRecord(id, owner, title, description, price, category, raw, created, updated))
+		if err := rows.Scan(&id, &owner, &title, &description, &price, &category, &raw, &created, &updated); err != nil {
+			fail(w, 500, err.Error())
+			return
 		}
+		items = append(items, materialRecord(id, owner, title, description, price, category, raw, created, updated))
 	}
-	write(w, 200, map[string]any{"list": items, "total": total, "page": p, "page_size": size, "total_pages": pages(total, size)})
+	if err := rows.Err(); err != nil {
+		fail(w, 500, err.Error())
+		return
+	}
+	ok(w, "查询素材成功", map[string]any{"list": items, "total": total, "page": p, "page_size": size, "total_pages": pages(total, size)})
 }
 
 func validateMaterial(p map[string]any) error {
@@ -412,9 +428,12 @@ func (s *Server) publishLogList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	var total int
-	_ = s.db.QueryRowContext(r.Context(), `SELECT count(*)`+query, args...).Scan(&total)
+	if err := s.db.QueryRowContext(r.Context(), `SELECT count(*)`+query, args...).Scan(&total); err != nil {
+		fail(w, 500, err.Error())
+		return
+	}
 	args = append(args, size, (p-1)*size)
-	rows, err := s.db.QueryContext(r.Context(), `SELECT id,account_id,material_id,batch_id,status,item_id,item_url,message,request_data,response_data,created_at,updated_at`+query+` ORDER BY id DESC LIMIT ? OFFSET ?`, args...)
+	rows, err := s.db.QueryContext(r.Context(), `SELECT id,COALESCE(account_id,''),material_id,COALESCE(batch_id,''),COALESCE(status,''),item_id,item_url,message,COALESCE(request_data,'{}'),COALESCE(response_data,'{}'),created_at,updated_at`+query+` ORDER BY id DESC LIMIT ? OFFSET ?`, args...)
 	if err != nil {
 		fail(w, 500, err.Error())
 		return
@@ -426,10 +445,27 @@ func (s *Server) publishLogList(w http.ResponseWriter, r *http.Request) {
 		var account, batch, status, request, responseData, created, updated string
 		var material sql.NullInt64
 		var itemID, itemURL, message sql.NullString
-		_ = rows.Scan(&id, &account, &material, &batch, &status, &itemID, &itemURL, &message, &request, &responseData, &created, &updated)
-		items = append(items, map[string]any{"id": id, "account_id": account, "material_id": nullable(material), "batch_id": batch, "status": status, "item_id": nullText(itemID), "item_url": nullText(itemURL), "message": nullText(message), "created_at": created, "updated_at": updated})
+		if err := rows.Scan(&id, &account, &material, &batch, &status, &itemID, &itemURL, &message, &request, &responseData, &created, &updated); err != nil {
+			fail(w, 500, err.Error())
+			return
+		}
+		payload, result := map[string]any{}, map[string]any{}
+		mergeJSON(payload, request)
+		mergeJSON(result, responseData)
+		item := map[string]any{"id": id, "user_id": u.ID, "account_id": account, "material_id": nullable(material), "batch_id": batch, "status": status, "item_id": nullText(itemID), "item_url": nullText(itemURL), "message": nullText(message), "error_message": nil, "title": text(payload["title"]), "description": text(payload["description"]), "price": text(payload["price"]), "created_at": created, "updated_at": updated}
+		if status == "failed" {
+			item["error_message"] = firstText(message.String, result["error_message"], result["message"])
+		}
+		for _, key := range []string{"resolved_address_id", "resolved_address_text", "address_source"} {
+			item[key] = result[key]
+		}
+		items = append(items, item)
 	}
-	write(w, 200, map[string]any{"list": items, "total": total, "page": p, "page_size": size, "total_pages": pages(total, size)})
+	if err := rows.Err(); err != nil {
+		fail(w, 500, err.Error())
+		return
+	}
+	ok(w, "查询发布日志成功", map[string]any{"list": items, "total": total, "page": p, "page_size": size, "total_pages": pages(total, size)})
 }
 
 func (s *Server) publishLogClear(w http.ResponseWriter, r *http.Request) {
