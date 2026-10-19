@@ -74,6 +74,12 @@ const LOGIN_STATUS_LABELS: Record<string, { text: string; cls: string }> = {
 
 // 失败/跳过细分原因中文映射
 const FAILURE_REASON_LABELS: Record<string, string> = {
+  platform_verification_required: '闲鱼要求安全验证',
+  session_expired: '闲鱼登录已失效',
+  invalid_cookie: 'Cookie缺少账号标识',
+  token_expired: '聊天Token已过期',
+  connection_failed: '聊天连接失败',
+  connection_closed: '聊天连接断开',
   bad_credentials: '账号或密码错误',
   baxia_punish_captcha: '风控图形验证（如找松鼠）',
   account_info_missing: '无法获取账号信息',
@@ -254,7 +260,7 @@ export function AccountLoginLogs() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="page-title">账号登录日志</h1>
-          <p className="page-description">查看账号密码登录每一次尝试的结果与失败原因</p>
+          <p className="page-description">查看账号登录、聊天连接的结果与失败原因；安全验证失败后需在闲鱼完成验证并更新登录</p>
         </div>
         <div className="flex gap-3 flex-wrap">
           {user?.is_admin ? (

@@ -26,7 +26,6 @@ import (
 	"github.com/zhinianboke/xianyu-auto-go/internal/notify"
 )
 
-const tokenAPI = "https://h5api.m.goofish.com/h5/mtop.taobao.idlemessage.pc.login.token/1.0/"
 const socketURL = "wss://wss-goofish.dingtalk.com/"
 
 type Account struct {
@@ -53,14 +52,16 @@ type replyDecision struct {
 	RawPayload                   []byte
 }
 type Manager struct {
-	db         *sql.DB
-	log        *slog.Logger
-	onMessage  func(Incoming)
-	mu         sync.Mutex
-	running    map[string]context.CancelFunc
-	online     map[string]bool
-	writers    map[string]*activeWriter
-	deliveryMu sync.Mutex
+	db           *sql.DB
+	log          *slog.Logger
+	onMessage    func(Incoming)
+	mu           sync.Mutex
+	running      map[string]context.CancelFunc
+	online       map[string]bool
+	blocked      map[string][32]byte
+	tokenFetcher func(context.Context, Account, string) (string, map[string]string, error)
+	writers      map[string]*activeWriter
+	deliveryMu   sync.Mutex
 }
 
 type activeWriter struct {
@@ -70,7 +71,7 @@ type activeWriter struct {
 }
 
 func NewManager(db *sql.DB, log *slog.Logger, onMessage func(Incoming)) *Manager {
-	return &Manager{db: db, log: log, onMessage: onMessage, running: map[string]context.CancelFunc{}, online: map[string]bool{}, writers: map[string]*activeWriter{}}
+	return &Manager{db: db, log: log, onMessage: onMessage, running: map[string]context.CancelFunc{}, online: map[string]bool{}, blocked: map[string][32]byte{}, writers: map[string]*activeWriter{}}
 }
 func (m *Manager) Run(ctx context.Context) {
 	ticker := time.NewTicker(10 * time.Second)
@@ -93,10 +94,12 @@ func (m *Manager) Restart(id string) {
 		cancel()
 	}
 	delete(m.online, id)
+	delete(m.blocked, id)
 	m.mu.Unlock()
 }
 func (m *Manager) RestartAll() {
 	m.mu.Lock()
+	m.blocked = map[string][32]byte{}
 	for _, cancel := range m.running {
 		cancel()
 	}
@@ -233,7 +236,6 @@ func (m *Manager) reconcile(ctx context.Context) {
 	for id, cancel := range m.running {
 		if _, ok := wanted[id]; !ok {
 			cancel()
-			delete(m.running, id)
 			delete(m.online, id)
 		}
 	}
@@ -249,21 +251,47 @@ func (m *Manager) reconcile(ctx context.Context) {
 }
 func (m *Manager) setOnline(id string, v bool) { m.mu.Lock(); m.online[id] = v; m.mu.Unlock() }
 func (m *Manager) accountLoop(ctx context.Context, a Account) {
-	defer func() { m.setOnline(a.AccountID, false); m.mu.Lock(); delete(m.running, a.AccountID); m.mu.Unlock() }()
+	defer func() {
+		m.setOnline(a.AccountID, false)
+		m.mu.Lock()
+		delete(m.running, a.AccountID)
+		delete(m.blocked, a.AccountID)
+		m.mu.Unlock()
+	}()
 	fails := 0
 	for ctx.Err() == nil {
+		if err := m.reloadConnectionAccount(ctx, &a); err != nil {
+			return
+		}
+		started := time.Now()
 		err := m.connect(ctx, a)
 		m.setOnline(a.AccountID, false)
 		if ctx.Err() != nil {
 			return
+		}
+		if time.Since(started) > time.Minute {
+			fails = 0
 		}
 		fails++
 		errText := "连接已结束"
 		if err != nil {
 			errText = err.Error()
 		}
-		failureData, _ := json.Marshal(map[string]any{"login_status": "failed", "error": errText})
+		reason := ConnectionFailureReason(err)
+		requiresAction := reason == "platform_verification_required" || reason == "session_expired" || reason == "invalid_cookie"
+		if err := m.reloadConnectionAccount(ctx, &a); err != nil {
+			return
+		}
+		failureData, _ := json.Marshal(map[string]any{"login_status": "failed", "login_method": "cookie", "trigger_reason": "聊天连接重连", "failure_reason": reason, "error_message": errText, "duration_ms": time.Since(started).Milliseconds(), "account_status": "active", "requires_verification": requiresAction})
 		_, _ = m.db.ExecContext(ctx, `INSERT INTO event_logs(owner_id,kind,account_id,level,message,data) VALUES(?,'account_login',?,'ERROR',?,?)`, a.OwnerID, a.AccountID, errText, string(failureData))
+		if requiresAction {
+			m.log.Warn("xianyu connection requires account action", "account", a.AccountID, "reason", reason)
+			if err := m.waitForConnectionAccountUpdate(ctx, a); err != nil {
+				return
+			}
+			fails = 0
+			continue
+		}
 		delay := time.Duration(math.Min(math.Pow(2, float64(fails)), 60))*time.Second + time.Duration(rand.IntN(3000))*time.Millisecond
 		m.log.Warn("xianyu disconnected", "account", a.AccountID, "error", err, "retry", delay)
 		select {
@@ -279,14 +307,16 @@ func (m *Manager) connect(ctx context.Context, a Account) error {
 	if uid == "" {
 		return errors.New("Cookie缺少unb")
 	}
-	device := DeviceID(uid)
-	token, newCookies, e := m.getConnectionToken(ctx, a, device)
+	device, e := m.connectionDeviceID(ctx, a)
 	if e != nil {
 		return e
 	}
-	if len(newCookies) > 0 {
-		a.Cookie = mergeCookies(a.Cookie, newCookies)
-		_, _ = m.db.ExecContext(ctx, `UPDATE xy_accounts SET cookie=?,last_refresh_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?`, a.Cookie, a.ID)
+	token, newCookies, e := m.getConnectionToken(ctx, a, device)
+	if cookieErr := m.saveConnectionCookies(ctx, &a, newCookies); cookieErr != nil {
+		return cookieErr
+	}
+	if e != nil {
+		return e
 	}
 	dialer := websocket.Dialer{HandshakeTimeout: 30 * time.Second, Proxy: http.ProxyFromEnvironment}
 	if p := proxyURL(a); p != nil {
@@ -300,6 +330,10 @@ func (m *Manager) connect(ctx context.Context, a Account) error {
 		return e
 	}
 	defer conn.Close()
+	connectionCtx, cancelConnection := context.WithCancel(ctx)
+	defer cancelConnection()
+	stopClose := context.AfterFunc(connectionCtx, func() { _ = conn.Close() })
+	defer stopClose()
 	var writeMu sync.Mutex
 	write := func(messageType int, data []byte) error {
 		writeMu.Lock()
@@ -337,8 +371,8 @@ func (m *Manager) connect(ctx context.Context, a Account) error {
 		defer tick.Stop()
 		for {
 			select {
-			case <-ctx.Done():
-				errCh <- ctx.Err()
+			case <-connectionCtx.Done():
+				errCh <- connectionCtx.Err()
 				return
 			case <-tick.C:
 				hb, _ := json.Marshal(map[string]any{"lwp": "/!", "headers": map[string]string{"mid": Mid()}})
@@ -512,7 +546,7 @@ func (m *Manager) getConnectionToken(ctx context.Context, a Account, device stri
 	if err == nil && strings.TrimSpace(token) != "" {
 		return token, nil, nil
 	}
-	token, cookies, err := fetchToken(ctx, a, device)
+	token, cookies, err := m.fetchConnectionToken(ctx, a, device)
 	if err != nil {
 		return "", cookies, err
 	}
@@ -555,11 +589,18 @@ func (m *Manager) RenewTokens(ctx context.Context) error {
 		if reusable > 0 {
 			continue
 		}
-		device := DeviceID(userID)
-		token, cookies, renewErr := fetchToken(ctx, a, device)
-		if len(cookies) > 0 {
-			a.Cookie = mergeCookies(a.Cookie, cookies)
-			_, _ = m.db.ExecContext(ctx, `UPDATE xy_accounts SET cookie=?,last_refresh_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?`, a.Cookie, a.ID)
+		if m.connectionBlocked(a) {
+			failures = append(failures, a.AccountID+": 需要完成闲鱼验证或更新登录")
+			continue
+		}
+		device, deviceErr := m.connectionDeviceID(ctx, a)
+		if deviceErr != nil {
+			failures = append(failures, a.AccountID+": "+deviceErr.Error())
+			continue
+		}
+		token, cookies, renewErr := m.fetchConnectionToken(ctx, a, device)
+		if cookieErr := m.saveConnectionCookies(ctx, &a, cookies); cookieErr != nil {
+			renewErr = cookieErr
 		}
 		status, level, message := "success", "INFO", "IM Token续期成功"
 		var expires any
@@ -637,53 +678,6 @@ func (m *Manager) isBlacklisted(ctx context.Context, a Account, v Incoming) bool
 	var count int
 	_ = m.db.QueryRowContext(ctx, `SELECT count(*) FROM resource_records WHERE enabled=1 AND ((owner_id=? AND kind='personal_blacklist' AND (COALESCE(account_id,'')='' OR account_id=?) AND json_extract(data,'$.buyer_id')=? AND (COALESCE(json_extract(data,'$.item_id'),'')='' OR json_extract(data,'$.item_id')=?)) OR (kind='platform_blacklist' AND json_extract(data,'$.buyer_id')=?))`, a.OwnerID, a.AccountID, v.SenderID, v.ItemID, v.SenderID).Scan(&count)
 	return count > 0
-}
-func fetchToken(ctx context.Context, a Account, device string) (string, map[string]string, error) {
-	cookies := ParseCookies(a.Cookie)
-	ts := fmt.Sprint(time.Now().UnixMilli())
-	data := `{"appKey":"` + AppKey + `","deviceId":"` + device + `"}`
-	tk := strings.Split(cookies["_m_h5_tk"], "_")[0]
-	q := url.Values{"jsv": {"2.7.2"}, "appKey": {"34839810"}, "t": {ts}, "sign": {Sign(ts, tk, data)}, "v": {"1.0"}, "type": {"originaljson"}, "accountSite": {"xianyu"}, "dataType": {"json"}, "timeout": {"20000"}, "api": {"mtop.taobao.idlemessage.pc.login.token"}, "sessionOption": {"AutoLoginOnly"}, "dangerouslySetWindvaneParams": {"%5Bobject%20Object%5D"}, "smToken": {"token"}, "queryToken": {"sm"}, "sm": {"sm"}, "spm_cnt": {"a21ybx.im.0.0"}}
-	req, e := http.NewRequestWithContext(ctx, http.MethodPost, tokenAPI+"?"+q.Encode(), strings.NewReader(url.Values{"data": {data}}.Encode()))
-	if e != nil {
-		return "", nil, e
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Cookie", strings.ReplaceAll(strings.ReplaceAll(a.Cookie, "\n", ""), "\r", ""))
-	req.Header.Set("Origin", "https://www.goofish.com")
-	req.Header.Set("Referer", "https://www.goofish.com/")
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/139 Safari/537.36")
-	tr := &http.Transport{Proxy: http.ProxyFromEnvironment}
-	if p := proxyURL(a); p != nil {
-		tr.Proxy = http.ProxyURL(p)
-	}
-	client := &http.Client{Timeout: 30 * time.Second, Transport: tr}
-	resp, e := client.Do(req)
-	if e != nil {
-		return "", nil, e
-	}
-	defer resp.Body.Close()
-	body, e := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
-	if e != nil {
-		return "", nil, e
-	}
-	var out struct {
-		Ret  []string `json:"ret"`
-		Data struct {
-			AccessToken string `json:"accessToken"`
-		} `json:"data"`
-	}
-	if e = json.Unmarshal(body, &out); e != nil {
-		return "", nil, fmt.Errorf("token响应解析失败: %w", e)
-	}
-	if out.Data.AccessToken == "" {
-		return "", nil, fmt.Errorf("token获取失败: %s", strings.Join(out.Ret, ","))
-	}
-	set := map[string]string{}
-	for _, c := range resp.Cookies() {
-		set[c.Name] = c.Value
-	}
-	return out.Data.AccessToken, set, nil
 }
 func proxyURL(a Account) *url.URL {
 	if a.ProxyType == "" || a.ProxyType == "none" || a.ProxyHost == "" || !a.ProxyPort.Valid {
