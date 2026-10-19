@@ -143,6 +143,7 @@ export function Items() {
   const [deleting, setDeleting] = useState(false)
   // const hasSearchEffectInitializedRef = useRef(false)  // 已改为手动查询，不再需要
   const skipNextSearchEffectRef = useRef(false)
+  const itemsRequestRef = useRef(0)
 
   const loadItems = async (
     page: number = pagination.page,
@@ -153,6 +154,7 @@ export function Items() {
     if (!_hasHydrated || !isAuthenticated || !token) {
       return
     }
+    const requestID = ++itemsRequestRef.current
     try {
       setItemsLoading(true)
       const trimmedKeyword = currentKeyword.trim()
@@ -160,6 +162,7 @@ export function Items() {
         ...currentFilters,
         keyword: trimmedKeyword || null,
       })
+      if (requestID !== itemsRequestRef.current) return
       if (result.success) {
         const nextItems = result.data || []
         const visibleIds = new Set(nextItems.map((item) => item.id))
@@ -175,10 +178,13 @@ export function Items() {
         })
       }
     } catch {
+      if (requestID !== itemsRequestRef.current) return
       addToast({ type: 'error', message: '加载商品列表失败' })
     } finally {
-      setItemsLoading(false)
-      setLoading(false)
+      if (requestID === itemsRequestRef.current) {
+        setItemsLoading(false)
+        setLoading(false)
+      }
     }
   }
 

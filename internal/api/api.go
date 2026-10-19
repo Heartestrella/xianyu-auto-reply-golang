@@ -575,6 +575,7 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 func current(r *http.Request) User { return r.Context().Value(userKey{}).(User) }
 func write(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "private, no-store")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
 }
@@ -1531,7 +1532,7 @@ func (s *Server) itemQuery(w http.ResponseWriter, r *http.Request, account strin
 		q += ` ORDER BY id DESC LIMIT ? OFFSET ?`
 		qa = append(qa, n, (p-1)*n)
 	}
-	rows, e := s.db.QueryContext(r.Context(), `SELECT account_id,item_id,COALESCE(title,''),COALESCE(description,''),COALESCE(price,''),COALESCE(status,''),COALESCE(data,'{}'),created_at,updated_at`+q, qa...)
+	rows, e := s.db.QueryContext(r.Context(), `SELECT id,account_id,item_id,COALESCE(title,''),COALESCE(description,''),COALESCE(price,''),COALESCE(status,''),COALESCE(data,'{}'),created_at,updated_at`+q, qa...)
 	if e != nil {
 		fail(w, 500, e.Error())
 		return
@@ -1539,13 +1540,17 @@ func (s *Server) itemQuery(w http.ResponseWriter, r *http.Request, account strin
 	defer rows.Close()
 	list := []map[string]any{}
 	for rows.Next() {
+		var recordID int64
 		var ac, id, title, desc, price, status, data, created, updated string
-		if e = rows.Scan(&ac, &id, &title, &desc, &price, &status, &data, &created, &updated); e != nil {
+		if e = rows.Scan(&recordID, &ac, &id, &title, &desc, &price, &status, &data, &created, &updated); e != nil {
 			fail(w, 500, e.Error())
 			return
 		}
-		m := map[string]any{"cookie_id": ac, "item_id": id, "title": title, "description": desc, "price": price, "status": status, "created_at": created, "updated_at": updated}
+		m := map[string]any{}
 		mergeJSON(m, data)
+		m["id"], m["cookie_id"], m["item_id"] = fmt.Sprint(recordID), ac, id
+		m["title"], m["description"], m["price"], m["status"] = title, desc, price, status
+		m["created_at"], m["updated_at"] = created, updated
 		defaultReply, hasDefaultReply := m["default_reply"].(map[string]any)
 		m["has_default_reply"] = hasDefaultReply && len(defaultReply) > 0
 		m["default_reply_enabled"] = hasDefaultReply && defaultReply["enabled"] == true

@@ -133,6 +133,13 @@ request.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+    // 动态后台数据不应复用浏览器/代理中的旧 GET 响应，包括“全部账号”的空列表。
+    if ((config.method || 'get').toLowerCase() === 'get') {
+      const params = new URLSearchParams(config.params)
+      params.set('_t', `${Date.now()}-${Math.random().toString(36).slice(2)}`)
+      config.params = params
+      config.headers['Cache-Control'] = 'no-cache, no-store'
+    }
     // FormData 需要让浏览器自动设置 multipart/form-data + boundary，不能强制指定 JSON
     if (config.data instanceof FormData) {
       delete config.headers['Content-Type']
