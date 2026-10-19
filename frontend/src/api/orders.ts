@@ -70,10 +70,13 @@ export const getOrders = (
   if (status) params.append('status', status)
   params.append('page', String(page))
   params.append('page_size', String(pageSize))
+  // 代理可能覆盖 no-store 响应头；每次查询使用新 URL，避开浏览器中的旧订单快照。
+  params.append('_t', String(Date.now()))
   
   if (filters) {
-    if (filters.search) {
-      params.append('search', filters.search)
+    const search = filters.search?.trim()
+    if (search) {
+      params.append('search', search)
     }
     if (filters.delivery_method !== null && filters.delivery_method !== undefined) {
       params.append('delivery_method', filters.delivery_method)
