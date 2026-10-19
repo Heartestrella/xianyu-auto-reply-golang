@@ -313,7 +313,18 @@ func (s *Server) adminLogsClear(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) adminEventKindClear(kind string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		res, err := s.db.ExecContext(r.Context(), `DELETE FROM event_logs WHERE kind=? OR kind LIKE ?`, kind, kind+"%")
+		query := `DELETE FROM event_logs WHERE kind IN (?,?)`
+		args := []any{kind, "scheduled_" + kind}
+		if r.URL.Query().Has("days") {
+			days, err := strconv.Atoi(r.URL.Query().Get("days"))
+			if err != nil || days < 1 || days > 36500 {
+				fail(w, 400, "保留天数必须为正整数")
+				return
+			}
+			query += ` AND created_at<datetime('now',?)`
+			args = append(args, fmt.Sprintf("-%d days", days))
+		}
+		res, err := s.db.ExecContext(r.Context(), query, args...)
 		if err != nil {
 			fail(w, 500, err.Error())
 			return
@@ -351,56 +362,6 @@ func (s *Server) adminLogFiles(w http.ResponseWriter, r *http.Request) {
 	write(w, 200, map[string]any{"success": true, "data": []map[string]any{{"name": "sqlite:event_logs", "size": count, "created_at": nullText(first), "updated_at": nullText(last)}}})
 }
 
-func (s *Server) adminBatchList(kind string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		p, size := page(r)
-		query := ` FROM event_logs WHERE kind=? OR kind LIKE ?`
-		args := []any{kind, kind + "%"}
-		var total int
-		_ = s.db.QueryRowContext(r.Context(), `SELECT count(DISTINCT COALESCE(json_extract(data,'$.batch_id'),id))`+query, args...).Scan(&total)
-		args = append(args, size, (p-1)*size)
-		rows, err := s.db.QueryContext(r.Context(), `SELECT COALESCE(json_extract(data,'$.batch_id'),CAST(id AS TEXT)),min(created_at),max(created_at),count(*),sum(CASE WHEN json_extract(data,'$.status')='failed' OR lower(level)='error' THEN 1 ELSE 0 END)`+query+` GROUP BY 1 ORDER BY max(id) DESC LIMIT ? OFFSET ?`, args...)
-		if err != nil {
-			fail(w, 500, err.Error())
-			return
-		}
-		defer rows.Close()
-		items := []map[string]any{}
-		for rows.Next() {
-			var id, created, updated string
-			var totalCount, failed int
-			_ = rows.Scan(&id, &created, &updated, &totalCount, &failed)
-			items = append(items, map[string]any{"batch_id": id, "status": map[bool]string{true: "partial", false: "completed"}[failed > 0], "total": totalCount, "success_count": totalCount - failed, "failed_count": failed, "created_at": created, "updated_at": updated})
-		}
-		ok(w, "查询成功", map[string]any{"items": items, "list": items, "total": total, "page": p, "page_size": size, "total_pages": pages(total, size)})
-	}
-}
-
-func (s *Server) adminBatchDetail(kind string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		id := chi.URLParam(r, "batch_id")
-		rows, err := s.db.QueryContext(r.Context(), `SELECT id,owner_id,COALESCE(account_id,''),level,message,data,created_at FROM event_logs WHERE (kind=? OR kind LIKE ?) AND (CAST(id AS TEXT)=? OR json_extract(data,'$.batch_id')=?) ORDER BY id`, kind, kind+"%", id, id)
-		if err != nil {
-			fail(w, 500, err.Error())
-			return
-		}
-		defer rows.Close()
-		items := []map[string]any{}
-		for rows.Next() {
-			var rowID, owner int64
-			var account, level, message, raw, created string
-			_ = rows.Scan(&rowID, &owner, &account, &level, &message, &raw, &created)
-			m := map[string]any{"id": rowID, "owner_id": owner, "account_id": account, "level": level, "message": message, "created_at": created}
-			mergeJSON(m, raw)
-			items = append(items, m)
-		}
-		if len(items) == 0 {
-			fail(w, 404, "批次不存在")
-			return
-		}
-		ok(w, "查询成功", map[string]any{"batch_id": id, "items": items, "total": len(items)})
-	}
-}
 func (s *Server) scheduledTasks(w http.ResponseWriter, r *http.Request) {
 	rows, e := s.db.QueryContext(r.Context(), `SELECT rowid,task_code,enabled,COALESCE(interval_seconds,0),COALESCE(last_run_at,''),COALESCE(next_run_at,''),data FROM scheduled_tasks ORDER BY rowid`)
 	if e != nil {

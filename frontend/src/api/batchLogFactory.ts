@@ -117,8 +117,7 @@ export function createBatchLogApi<TBatch, TDetail>(
 ): BatchLogApi<TBatch, TDetail> | BatchLogApiWithClear<TBatch, TDetail> {
   const batchesUrl = `${ADMIN_PREFIX}/${paths.batches}`
 
-  const getBatches = (params?: BatchListQuery) =>
-    get<BatchListResponse<TBatch>>(`${batchesUrl}${buildBatchesQuery(params)}`)
+  const getBatches = createUnifiedBatchLogApi<TBatch, TDetail>(paths.batches).getBatches
 
   const getBatchDetail = (batchId: string) =>
     get<BatchDetailResponse<TDetail>>(`${batchesUrl}/${batchId}`)
@@ -129,7 +128,7 @@ export function createBatchLogApi<TBatch, TDetail>(
 
   const clearLogsUrl = `${ADMIN_PREFIX}/${paths.clearLogs}`
   const clearLogs = () =>
-    del<{ success: boolean; message?: string }>(clearLogsUrl)
+    del<{ success: boolean; message?: string }>(`${clearLogsUrl}?days=10`)
 
   return { getBatches, getBatchDetail, clearLogs }
 }
