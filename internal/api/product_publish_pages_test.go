@@ -67,3 +67,23 @@ func TestProductPublishListContracts(t *testing.T) {
 		})
 	}
 }
+
+func TestPublishLogClearRetainsRecentAndOtherOwners(t *testing.T) {
+	db, err := database.Open(filepath.Join(t.TempDir(), "retention.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	_, err = db.Exec(`INSERT INTO publish_logs(owner_id,status,created_at) VALUES(1,'success',datetime('now','-11 days')),(1,'success',CURRENT_TIMESTAMP),(2,'success',datetime('now','-11 days'))`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest("DELETE", "/", nil)
+	r = r.WithContext(context.WithValue(r.Context(), userKey{}, User{ID: 1, Role: "ADMIN"}))
+	w := httptest.NewRecorder()
+	(&Server{db: db}).publishLogClear(w, r)
+	var count int
+	if err := db.QueryRow(`SELECT count(*) FROM publish_logs`).Scan(&count); err != nil || w.Code != 200 || count != 2 {
+		t.Fatalf("invalid retention: %d %d %v", w.Code, count, err)
+	}
+}

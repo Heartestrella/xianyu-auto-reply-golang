@@ -470,11 +470,11 @@ func (s *Server) publishLogList(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) publishLogClear(w http.ResponseWriter, r *http.Request) {
 	u := current(r)
-	res, err := s.db.ExecContext(r.Context(), `DELETE FROM publish_logs WHERE owner_id=?`, u.ID)
+	res, err := s.db.ExecContext(r.Context(), `DELETE FROM publish_logs WHERE owner_id=? AND created_at<datetime('now','-10 days')`, u.ID)
 	if err != nil {
 		fail(w, 500, err.Error())
 		return
 	}
 	n, _ := res.RowsAffected()
-	ok(w, "发布日志已清空", map[string]any{"deleted_count": n})
+	ok(w, "已清理10天前的发布日志，最近10天记录已保留", map[string]any{"deleted_count": n})
 }
