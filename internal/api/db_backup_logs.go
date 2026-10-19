@@ -58,14 +58,8 @@ func (s *Server) dbBackupLogs(w http.ResponseWriter, r *http.Request) {
 		where += " AND status=?"
 		args = append(args, status)
 	}
-	if start := r.URL.Query().Get("start_date"); start != "" {
-		where += " AND datetime(created_at,'localtime')>=?"
-		args = append(args, start+" 00:00:00")
-	}
-	if end := r.URL.Query().Get("end_date"); end != "" {
-		where += " AND datetime(created_at,'localtime')<=?"
-		args = append(args, end+" 23:59:59")
-	}
+	where, args = appendDateFilters(r, where, args)
+
 	var total int
 	_ = s.db.QueryRowContext(r.Context(), `SELECT count(*) FROM xy_db_backup_log WHERE `+where, args...).Scan(&total)
 	args = append(args, limit, offset)

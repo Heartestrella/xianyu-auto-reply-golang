@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/zhinianboke/xianyu-auto-go/internal/xianyu"
 )
@@ -81,13 +82,25 @@ func limitOffset(r *http.Request) (int, int) {
 }
 
 func appendDateFilters(r *http.Request, query string, args []any) (string, []any) {
+	return appendDateFiltersForColumn(r, query, args, "created_at")
+}
+
+func appendDateFiltersForColumn(r *http.Request, query string, args []any, column string) (string, []any) {
 	if start := strings.TrimSpace(r.URL.Query().Get("start_date")); start != "" {
-		query += ` AND date(created_at,'localtime')>=date(?)`
-		args = append(args, start)
+		day, err := time.ParseInLocation("2006-01-02", start, time.Local)
+		if err != nil {
+			return query + ` AND 1=0`, args
+		}
+		query += ` AND ` + column + `>=?`
+		args = append(args, day.UTC().Format("2006-01-02 15:04:05"))
 	}
 	if end := strings.TrimSpace(r.URL.Query().Get("end_date")); end != "" {
-		query += ` AND date(created_at,'localtime')<=date(?)`
-		args = append(args, end)
+		day, err := time.ParseInLocation("2006-01-02", end, time.Local)
+		if err != nil {
+			return query + ` AND 1=0`, args
+		}
+		query += ` AND ` + column + `<?`
+		args = append(args, day.AddDate(0, 0, 1).UTC().Format("2006-01-02 15:04:05"))
 	}
 	return query, args
 }
@@ -171,14 +184,8 @@ func (s *Server) autoReplyLogs(w http.ResponseWriter, r *http.Request) {
 		query += ` AND account_id=?`
 		args = append(args, accountID)
 	}
-	if start := strings.TrimSpace(r.URL.Query().Get("start_date")); start != "" {
-		query += ` AND date(created_at,'localtime')>=date(?)`
-		args = append(args, start)
-	}
-	if end := strings.TrimSpace(r.URL.Query().Get("end_date")); end != "" {
-		query += ` AND date(created_at,'localtime')<=date(?)`
-		args = append(args, end)
-	}
+	query, args = appendDateFilters(r, query, args)
+
 	var total int
 	if err := s.db.QueryRowContext(r.Context(), `SELECT count(*)`+query, args...).Scan(&total); err != nil {
 		fail(w, 500, err.Error())

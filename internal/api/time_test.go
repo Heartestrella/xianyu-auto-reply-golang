@@ -44,3 +44,17 @@ func TestServerTimeAndSystemLogs(t *testing.T) {
 		t.Fatalf("local date filter lost midnight records: %d err=%v", count, err)
 	}
 }
+
+func TestDateFilterUsesServerCalendarAcrossDST(t *testing.T) {
+	previous := time.Local
+	zone, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Local = zone
+	t.Cleanup(func() { time.Local = previous })
+	_, args := appendDateFilters(httptest.NewRequest("GET", "/?start_date=2026-03-08&end_date=2026-03-08", nil), " WHERE 1=1", nil)
+	if len(args) != 2 || args[0] != "2026-03-08 05:00:00" || args[1] != "2026-03-09 04:00:00" {
+		t.Fatalf("incorrect server day bounds: %v", args)
+	}
+}

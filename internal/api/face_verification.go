@@ -26,14 +26,7 @@ func (s *Server) faceVerificationNotifications(w http.ResponseWriter, r *http.Re
 		query += ` AND a.id=?`
 		args = append(args, accountID)
 	}
-	if start := strings.TrimSpace(r.URL.Query().Get("start_date")); start != "" {
-		query += ` AND date(e.created_at,'localtime')>=date(?)`
-		args = append(args, start)
-	}
-	if end := strings.TrimSpace(r.URL.Query().Get("end_date")); end != "" {
-		query += ` AND date(e.created_at,'localtime')<=date(?)`
-		args = append(args, end)
-	}
+	query, args = appendDateFiltersForColumn(r, query, args, "e.created_at")
 	var total int
 	if err := s.db.QueryRowContext(r.Context(), `SELECT count(*)`+query, args...).Scan(&total); err != nil {
 		fail(w, 500, err.Error())
