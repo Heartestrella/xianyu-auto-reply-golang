@@ -2021,9 +2021,15 @@ func (s *Server) cardUpdate(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "请求格式错误")
 		return
 	}
-	b, _ := json.Marshal(p)
-	res, e := s.db.ExecContext(r.Context(), `UPDATE cards SET name=COALESCE(?,name),type=COALESCE(?,type),data=?,updated_at=CURRENT_TIMESTAMP WHERE user_id=? AND id=?`, p["name"], p["type"], string(b), u.ID, chi.URLParam(r, "id"))
-	affected(w, res, e, "卡券更新成功")
+	if err := s.updateCardData(r.Context(), u.ID, chi.URLParam(r, "id"), p); err != nil {
+		if err == sql.ErrNoRows {
+			fail(w, 404, "卡券不存在")
+		} else {
+			fail(w, 500, "卡券更新失败")
+		}
+		return
+	}
+	ok(w, "卡券更新成功", nil)
 }
 func (s *Server) cardDelete(w http.ResponseWriter, r *http.Request) {
 	u := current(r)

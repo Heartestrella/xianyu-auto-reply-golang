@@ -237,9 +237,8 @@ export function CardFormModal({ cardId, initialData, onClose, onSaved }: CardFor
         cardData.data_content = formData.dataContent.trim()
       }
 
-      if (formData.imageUrls.length > 0) {
-        cardData.image_urls = formData.imageUrls
-      }
+      cardData.image_urls = formData.imageUrls
+      cardData.image_url = formData.imageUrls[0] || ''
 
       if (isEditMode) {
         await updateCard(String(cardId), cardData)
