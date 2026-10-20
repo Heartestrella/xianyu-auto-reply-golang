@@ -1282,8 +1282,14 @@ func (s *Server) accountDelete(w http.ResponseWriter, r *http.Request) {
 		fail(w, 404, "账号不存在或无权限访问")
 		return
 	}
-	res, e := s.db.ExecContext(r.Context(), `DELETE FROM xy_accounts WHERE owner_id=? AND account_id=?`, ownerID, accountID)
-	affected(w, res, e, "账号删除成功")
+	if e := s.deleteAccountData(r.Context(), ownerID, accountID); e != nil {
+		fail(w, 500, "账号删除失败")
+		return
+	}
+	if s.accountRestart != nil {
+		s.accountRestart(accountID)
+	}
+	ok(w, "账号删除成功", nil)
 }
 func (s *Server) accountLoginInfo(w http.ResponseWriter, r *http.Request) {
 	u := current(r)
