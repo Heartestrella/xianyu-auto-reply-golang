@@ -3,9 +3,13 @@ package api
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/zhinianboke/xianyu-auto-go/internal/xianyu"
 )
 
 func (s *Server) recordUserLogin(r *http.Request, ownerID int64, identity, method string, success bool) {
@@ -78,13 +82,25 @@ func limitOffset(r *http.Request) (int, int) {
 }
 
 func appendDateFilters(r *http.Request, query string, args []any) (string, []any) {
+	return appendDateFiltersForColumn(r, query, args, "created_at")
+}
+
+func appendDateFiltersForColumn(r *http.Request, query string, args []any, column string) (string, []any) {
 	if start := strings.TrimSpace(r.URL.Query().Get("start_date")); start != "" {
-		query += ` AND date(created_at)>=date(?)`
-		args = append(args, start)
+		day, err := time.ParseInLocation("2006-01-02", start, time.Local)
+		if err != nil {
+			return query + ` AND 1=0`, args
+		}
+		query += ` AND ` + column + `>=?`
+		args = append(args, day.UTC().Format("2006-01-02 15:04:05"))
 	}
 	if end := strings.TrimSpace(r.URL.Query().Get("end_date")); end != "" {
-		query += ` AND date(created_at)<=date(?)`
-		args = append(args, end)
+		day, err := time.ParseInLocation("2006-01-02", end, time.Local)
+		if err != nil {
+			return query + ` AND 1=0`, args
+		}
+		query += ` AND ` + column + `<?`
+		args = append(args, day.AddDate(0, 0, 1).UTC().Format("2006-01-02 15:04:05"))
 	}
 	return query, args
 }
@@ -95,7 +111,11 @@ func (s *Server) writeLoginLogPage(w http.ResponseWriter, r *http.Request, query
 		fail(w, 500, err.Error())
 		return
 	}
-	rows, err := s.db.QueryContext(r.Context(), `SELECT id,owner_id,COALESCE(account_id,''),level,message,data,created_at`+query+` ORDER BY id DESC LIMIT ? OFFSET ?`, append(args, limit, offset)...)
+	columns := `SELECT id,owner_id,COALESCE(account_id,''),level,message,data,created_at`
+	if account {
+		columns += `,COALESCE((SELECT status FROM xy_accounts a WHERE a.account_id=event_logs.account_id),'unknown'),COALESCE((SELECT username FROM xy_accounts a WHERE a.account_id=event_logs.account_id),''),COALESCE((SELECT disable_reason FROM xy_accounts a WHERE a.account_id=event_logs.account_id),'')`
+	}
+	rows, err := s.db.QueryContext(r.Context(), columns+query+` ORDER BY id DESC LIMIT ? OFFSET ?`, append(args, limit, offset)...)
 	if err != nil {
 		fail(w, 500, err.Error())
 		return
@@ -106,8 +126,14 @@ func (s *Server) writeLoginLogPage(w http.ResponseWriter, r *http.Request, query
 		var id int64
 		var owner sql.NullInt64
 		var accountID, level, message, raw, created string
-		if rows.Scan(&id, &owner, &accountID, &level, &message, &raw, &created) != nil {
-			continue
+		var accountStatus, username, disableReason string
+		dest := []any{&id, &owner, &accountID, &level, &message, &raw, &created}
+		if account {
+			dest = append(dest, &accountStatus, &username, &disableReason)
+		}
+		if err := rows.Scan(dest...); err != nil {
+			fail(w, 500, err.Error())
+			return
 		}
 		item := map[string]any{"id": id, "owner_id": nullable(owner), "message": message, "created_at": created}
 		var extra map[string]any
@@ -121,8 +147,30 @@ func (s *Server) writeLoginLogPage(w http.ResponseWriter, r *http.Request, query
 			if _, exists := item["login_status"]; !exists {
 				item["login_status"] = map[bool]string{true: "success", false: "failed"}[strings.EqualFold(level, "INFO")]
 			}
+			if text(item["account_status"]) == "" || item["account_status"] == "unknown" {
+				item["account_status"] = accountStatus
+			}
+			if text(item["username"]) == "" {
+				item["username"] = username
+			}
+			if text(item["disable_reason"]) == "" {
+				item["disable_reason"] = disableReason
+			}
+			if text(item["trigger_reason"]) == "" {
+				item["trigger_reason"] = "聊天连接"
+			}
+			if item["login_status"] == "failed" {
+				item["error_message"] = firstText(item["error_message"], item["error"], message)
+				if text(item["failure_reason"]) == "" {
+					item["failure_reason"] = xianyu.ConnectionFailureReason(errors.New(text(item["error_message"])))
+				}
+			}
 		}
 		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		fail(w, 500, err.Error())
+		return
 	}
 	write(w, 200, map[string]any{"success": true, "data": items, "total": total, "limit": limit, "offset": offset})
 }
@@ -136,14 +184,8 @@ func (s *Server) autoReplyLogs(w http.ResponseWriter, r *http.Request) {
 		query += ` AND account_id=?`
 		args = append(args, accountID)
 	}
-	if start := strings.TrimSpace(r.URL.Query().Get("start_date")); start != "" {
-		query += ` AND date(created_at)>=date(?)`
-		args = append(args, start)
-	}
-	if end := strings.TrimSpace(r.URL.Query().Get("end_date")); end != "" {
-		query += ` AND date(created_at)<=date(?)`
-		args = append(args, end)
-	}
+	query, args = appendDateFilters(r, query, args)
+
 	var total int
 	if err := s.db.QueryRowContext(r.Context(), `SELECT count(*)`+query, args...).Scan(&total); err != nil {
 		fail(w, 500, err.Error())

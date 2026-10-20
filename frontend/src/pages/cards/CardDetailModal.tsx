@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/date'
 /**
  * 卡券详情弹窗组件
  * 
@@ -144,8 +145,8 @@ export function CardDetailModal({ card, onClose, zIndex = 60 }: CardDetailModalP
 
           {/* 时间信息 */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-3 space-y-2">
-            <DetailRow label="创建时间" value={card.created_at ? new Date(card.created_at).toLocaleString('zh-CN') : '-'} />
-            <DetailRow label="更新时间" value={card.updated_at ? new Date(card.updated_at).toLocaleString('zh-CN') : '-'} />
+            <DetailRow label="创建时间" value={card.created_at ? formatDateTime(card.created_at) : '-'} />
+            <DetailRow label="更新时间" value={card.updated_at ? formatDateTime(card.updated_at) : '-'} />
           </div>
         </div>
         <div className="modal-footer">

@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/date'
 /**
  * 采集商品详情弹窗
  *
@@ -36,7 +37,7 @@ const orderStatusText = (item: ListingMonitorItemDetail): string => {
 }
 
 const formatTime = (value?: string | null): string =>
-  value ? new Date(value).toLocaleString('zh-CN') : '-'
+  value ? formatDateTime(value) : '-'
 
 export function MonitorItemDetailModal({ itemPk, onClose }: MonitorItemDetailModalProps) {
   const { addToast } = useUIStore()

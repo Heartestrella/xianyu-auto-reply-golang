@@ -1,4 +1,5 @@
-﻿/**
+import { formatDateTime } from '@/utils/date'
+/**
  * 发布日志页面
  *
  * 功能：
@@ -111,7 +112,7 @@ export function PublishLogs() {
   }
 
   const formatDate = (d: string) =>
-    d ? new Date(d).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '-'
+    d ? formatDateTime(d) : '-'
 
   if (loading) return <PageLoading />
 

@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/date'
 /**
  * 货源广场页面
  * 
@@ -294,7 +295,7 @@ export function SupplyManagement() {
                         </span>
                       </td>
                       <td className="text-xs text-gray-500 whitespace-nowrap">
-                        {card.created_at ? new Date(card.created_at).toLocaleString('zh-CN') : '-'}
+                        {card.created_at ? formatDateTime(card.created_at) : '-'}
                       </td>
                       <td>
                         {card.is_docked ? (

@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/date'
 /**
  * 闲鱼黑名单Tab页（仅展示，无操作）
  */
@@ -82,10 +83,10 @@ export function PlatformBlacklist({ onRefreshRef }: Props) {
                   <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{item.buyer_id}</td>
                   <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{item.buyer_nick || '-'}</td>
                   <td className="px-3 py-2 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">
-                    {item.created_at ? new Date(item.created_at).toLocaleString() : '-'}
+                    {item.created_at ? formatDateTime(item.created_at) : '-'}
                   </td>
                   <td className="px-3 py-2 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">
-                    {item.updated_at ? new Date(item.updated_at).toLocaleString() : '-'}
+                    {item.updated_at ? formatDateTime(item.updated_at) : '-'}
                   </td>
                 </tr>
               ))

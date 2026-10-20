@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/date'
 /**
  * 资金流水页面
  * 
@@ -261,7 +262,7 @@ export function FundFlows() {
                         </td>
                         <td className="text-sm text-gray-500 whitespace-nowrap">
                           {flow.created_at
-                            ? new Date(flow.created_at).toLocaleString('zh-CN')
+                            ? formatDateTime(flow.created_at)
                             : '-'}
                         </td>
                       </tr>

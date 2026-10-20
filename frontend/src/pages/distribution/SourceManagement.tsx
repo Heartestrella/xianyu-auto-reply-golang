@@ -1,4 +1,5 @@
-﻿/**
+import { formatDateTime } from '@/utils/date'
+/**
  * 货源管理页面
  * 
  * 两个 Tab：
@@ -226,7 +227,7 @@ export function SourceManagement() {
                       <td className="whitespace-nowrap font-medium text-slate-900 dark:text-white">{item.target_username}</td>
                       <td className="whitespace-nowrap font-mono text-sm tracking-wider">{item.dock_code}</td>
                       <td className="whitespace-nowrap text-sm text-slate-500">
-                        {item.created_at ? new Date(item.created_at).toLocaleString('zh-CN') : '-'}
+                        {item.created_at ? formatDateTime(item.created_at) : '-'}
                       </td>
                       <td className="whitespace-nowrap sticky right-0 bg-white dark:bg-slate-900 z-10">
                         <button
@@ -276,7 +277,7 @@ export function SourceManagement() {
                         </span>
                       </td>
                       <td className="whitespace-nowrap text-sm text-slate-500">
-                        {item.created_at ? new Date(item.created_at).toLocaleString('zh-CN') : '-'}
+                        {item.created_at ? formatDateTime(item.created_at) : '-'}
                       </td>
                       <td className="whitespace-nowrap sticky right-0 bg-white dark:bg-slate-900 z-10">
                         <button

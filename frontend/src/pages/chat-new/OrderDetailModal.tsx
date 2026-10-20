@@ -1,3 +1,4 @@
+import { formatPlatformDateTime } from '@/utils/date'
 /**
  * 在线聊天工作台 - 订单详情弹窗
  *
@@ -42,7 +43,7 @@ export function OrderDetailModal({ order, fallbackBuyerNick, onClose }: OrderDet
           <div className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-2 text-gray-600 dark:text-gray-300">
             <span className="text-gray-400">买家昵称</span><span>{order.buyer_fish_nick || fallbackBuyerNick || '未获取'}</span>
             <span className="text-gray-400">买家ID</span><span className="break-all">{order.buyer_id || '未获取'}</span>
-            <span className="text-gray-400">下单时间</span><span>{order.placed_at ? new Date(order.placed_at).toLocaleString() : '未获取'}</span>
+            <span className="text-gray-400">下单时间</span><span>{order.placed_at ? formatPlatformDateTime(order.placed_at) : '未获取'}</span>
             <span className="text-gray-400">收货人</span><span>{order.receiver_name || '未获取'}</span>
             <span className="text-gray-400">联系电话</span><span>{order.receiver_phone || '未获取'}</span>
             <span className="text-gray-400">收货地址</span><span className="break-words">{order.receiver_address || '未获取'}</span>

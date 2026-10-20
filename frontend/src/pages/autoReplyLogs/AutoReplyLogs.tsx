@@ -1,3 +1,4 @@
+import { formatDateTime, getServerDateInputValue } from '@/utils/date'
 import { useEffect, useMemo, useState } from 'react'
 import { Calendar, ChevronLeft, ChevronRight, MessageSquare, RefreshCw } from 'lucide-react'
 import { getAccountDetails } from '@/api/accounts'
@@ -56,24 +57,7 @@ const DECISION_REASON_LABELS: Record<string, string> = {
   manual_reply_ai_paused: '人工回复后暂停 AI',
 }
 
-function formatDateTime(value?: string | null) {
-  if (!value) {
-    return '-'
-  }
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  })
-}
+
 
 function buildStrategyLabel(log: AutoReplyLogItem) {
   if (log.reply_strategy === 'default' && log.default_reply_scope) {
@@ -135,7 +119,7 @@ function renderText(value?: string | null) {
 
 export function AutoReplyLogs() {
   const { addToast } = useUIStore()
-  const today = new Date().toISOString().split('T')[0]
+  const today = getServerDateInputValue()
   const [loading, setLoading] = useState(true)
   const [accountsLoading, setAccountsLoading] = useState(true)
   const [logs, setLogs] = useState<AutoReplyLogItem[]>([])

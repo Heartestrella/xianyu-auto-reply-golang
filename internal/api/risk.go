@@ -93,7 +93,7 @@ func (s *Server) riskLogs(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) riskTodayRate(w http.ResponseWriter, r *http.Request) {
 	u := current(r)
-	query := ` FROM event_logs WHERE kind LIKE 'risk%' AND date(created_at)=date('now','localtime')`
+	query := ` FROM event_logs WHERE kind LIKE 'risk%' AND date(created_at,'localtime')=date('now','localtime')`
 	args := []any{}
 	if u.Role != "ADMIN" {
 		query += ` AND owner_id=?`

@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/date'
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { BarChart3, ExternalLink, Filter, RefreshCw, TrendingUp } from 'lucide-react'
@@ -27,12 +28,7 @@ function topN(items: GoofishCrawlItem[], key: 'want_count' | 'view_count', n: nu
     .slice(0, n)
 }
 
-function formatDateTime(value?: string | Date | null) {
-  if (!value) return '-'
-  const date = typeof value === 'string' ? new Date(value) : value
-  if (Number.isNaN(date.getTime())) return '-'
-  return date.toLocaleString()
-}
+
 
 function StatCard({
   icon: Icon,

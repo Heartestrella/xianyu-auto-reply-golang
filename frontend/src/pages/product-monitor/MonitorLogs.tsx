@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/date'
 /**
  * 商品监控 - 监控日志页面
  *
@@ -499,7 +500,7 @@ export function MonitorLogs() {
                           )}
                         </button>
                       </td>
-                      <td className="whitespace-nowrap text-slate-500 dark:text-slate-400">{item.created_at ? new Date(item.created_at).toLocaleString('zh-CN') : '-'}</td>
+                      <td className="whitespace-nowrap text-slate-500 dark:text-slate-400">{item.created_at ? formatDateTime(item.created_at) : '-'}</td>
                       <td className="whitespace-nowrap">{item.monitor_type ? (MONITOR_TYPE_LABELS[item.monitor_type] || item.monitor_type) : '-'}</td>
                       <td className="whitespace-nowrap">
                         {item.trigger_type === 'manual' ? (

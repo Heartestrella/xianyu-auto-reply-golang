@@ -1,3 +1,4 @@
+import { getServerDateInputValue } from '@/utils/date'
 import { useState, useEffect, useRef } from 'react'
 import type { FormEvent, ChangeEvent } from 'react'
 import { motion } from 'framer-motion'
@@ -371,7 +372,7 @@ export function Keywords() {
       const blob = await exportKeywords(selectedAccount)
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
-      const date = new Date().toISOString().split('T')[0]
+      const date = getServerDateInputValue()
       a.href = url
       a.download = `keywords_${selectedAccount}_${date}.xlsx`
       document.body.appendChild(a)

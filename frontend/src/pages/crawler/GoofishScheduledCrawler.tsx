@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/date'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ExternalLink, Play, RefreshCw, Square, Trash2, Eye, Clock } from 'lucide-react'
 import { motion } from 'framer-motion'
@@ -20,12 +21,7 @@ import { useUIStore } from '@/store/uiStore'
 import type { AccountDetail } from '@/types'
 import { cn } from '@/utils/cn'
 
-function formatDateTime(value?: string) {
-  if (!value) return '-'
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return value
-  return d.toLocaleString()
-}
+
 
 function secondsToText(seconds: number) {
   if (!Number.isFinite(seconds) || seconds <= 0) return '-'

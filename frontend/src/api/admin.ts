@@ -124,14 +124,15 @@ export const getSystemLogs = async (params?: { page?: number; limit?: number; le
   if (params?.page) query.set('page', String(params.page))
   if (params?.limit) query.set('lines', String(params.limit))  // 后端用 lines 参数
   if (params?.level) query.set('level', params.level.toUpperCase())
-  const result = await get<{ logs?: string[]; total?: number }>(`${ADMIN_PREFIX}/logs?${query.toString()}`)
+  const result = await get<{ data?: SystemLog[]; logs?: string[]; total?: number }>(`${ADMIN_PREFIX}/logs?${query.toString()}`)
+  if (Array.isArray(result.data)) return { success: true, data: result.data, total: result.total }
   // 后端返回 { logs: [...] } 格式，转换为 SystemLog 数组
   const logs: SystemLog[] = (result.logs || []).map((log, index) => ({
     id: String(index),
     level: log.includes('ERROR') ? 'error' : log.includes('WARNING') ? 'warning' : 'info',
     message: log,
     module: 'system',
-    created_at: new Date().toISOString(),
+    created_at: log.match(/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})?/)?.[0] || '',
   }))
   return { success: true, data: logs, total: result.total }
 }

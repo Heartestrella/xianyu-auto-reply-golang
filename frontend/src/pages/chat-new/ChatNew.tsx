@@ -1,3 +1,4 @@
+import { formatChatTime } from '@/utils/date'
 /**
  * 在线聊天 主页面
  *
@@ -1162,21 +1163,7 @@ export function ChatNew() {
   }
 
   // ==================== 时间格式化 ====================
-  const formatTime = (ts: number) => {
-    if (!ts) return ''
-    const d = new Date(ts)
-    const now = new Date()
-    const isToday =
-      d.getFullYear() === now.getFullYear() &&
-      d.getMonth() === now.getMonth() &&
-      d.getDate() === now.getDate()
-    if (isToday) {
-      return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-    }
-    return d.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }) +
-      ' ' +
-      d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-  }
+  const formatTime = formatChatTime
 
   // ==================== 渲染 ====================
   // 手机端各 Tab 对应未读 / 状态提示

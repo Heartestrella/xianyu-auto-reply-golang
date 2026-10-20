@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/date'
 /**
  * 卡券管理页面
  * 
@@ -440,10 +441,10 @@ export function Cards() {
                       <td className="align-top text-gray-500 text-[11px] whitespace-nowrap">
                         <div className="flex flex-col gap-0.5">
                           <span title="创建时间">
-                            创建：{card.created_at ? new Date(card.created_at).toLocaleString('zh-CN') : '-'}
+                            创建：{card.created_at ? formatDateTime(card.created_at) : '-'}
                           </span>
                           <span className="text-gray-400" title="更新时间">
-                            更新：{card.updated_at ? new Date(card.updated_at).toLocaleString('zh-CN') : '-'}
+                            更新：{card.updated_at ? formatDateTime(card.updated_at) : '-'}
                           </span>
                         </div>
                       </td>

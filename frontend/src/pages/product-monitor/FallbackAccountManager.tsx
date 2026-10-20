@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/date'
 /**
  * 兜底账号配置管理（按分类）通用组件
  *
@@ -315,7 +316,7 @@ export function FallbackAccountManager({
                         )}
                       </td>
                       <td className="whitespace-nowrap text-slate-500 dark:text-slate-400">
-                        {config.updated_at ? new Date(config.updated_at).toLocaleString('zh-CN') : '-'}
+                        {config.updated_at ? formatDateTime(config.updated_at) : '-'}
                       </td>
                       <td className="whitespace-nowrap">
                         <div className="flex items-center gap-1">

@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/date'
 /**
  * 用户登录日志页面
  *
@@ -254,7 +255,7 @@ export function UserLoginLogs() {
                       </span>
                     </td>
                     <td className="text-slate-500 dark:text-slate-400 text-sm whitespace-nowrap">
-                      {log.created_at ? new Date(log.created_at).toLocaleString() : '-'}
+                      {log.created_at ? formatDateTime(log.created_at) : '-'}
                     </td>
                   </tr>
                 ))

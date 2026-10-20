@@ -20,7 +20,7 @@ import { PageLoading } from '@/components/common/Loading'
 import { Select } from '@/components/common/Select'
 import { ConfirmModal } from '@/components/common/ConfirmModal'
 import { getApiErrorMessage } from '@/utils/request'
-import { getBeijingDateInputValue } from '@/utils/date'
+import { formatDateTime, getBeijingDateInputValue } from '@/utils/date'
 import type { Account } from '@/types'
 
 // Token获取方式专用域名：这些是取Token的远程接口地址，不是过滑块远程服务，禁止填到本页保存
@@ -888,10 +888,10 @@ export function RiskLogs() {
                       {log.call_user || '-'}
                     </td>
                     <td className="text-slate-500 dark:text-slate-400 text-sm whitespace-nowrap">
-                      {new Date(log.created_at).toLocaleString()}
+                      {formatDateTime(log.created_at)}
                     </td>
                     <td className="text-slate-500 dark:text-slate-400 text-sm whitespace-nowrap">
-                      {log.updated_at ? new Date(log.updated_at).toLocaleString() : '-'}
+                      {log.updated_at ? formatDateTime(log.updated_at) : '-'}
                     </td>
                   </tr>
                 ))

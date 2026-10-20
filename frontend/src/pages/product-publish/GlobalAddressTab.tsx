@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/date'
 /**
  * 随机地址库（全局）Tab
  *
@@ -300,8 +301,8 @@ export function GlobalAddressTab() {
                       <span className="truncate block" title={item.address || item.search_keyword}>{item.address || item.search_keyword}</span>
                     </td>
                     <td>{item.use_count}</td>
-                    <td className="whitespace-nowrap text-slate-500 dark:text-slate-400">{item.last_used_at ? new Date(item.last_used_at).toLocaleString('zh-CN') : '-'}</td>
-                    <td className="whitespace-nowrap text-slate-500 dark:text-slate-400">{item.updated_at ? new Date(item.updated_at).toLocaleString('zh-CN') : '-'}</td>
+                    <td className="whitespace-nowrap text-slate-500 dark:text-slate-400">{item.last_used_at ? formatDateTime(item.last_used_at) : '-'}</td>
+                    <td className="whitespace-nowrap text-slate-500 dark:text-slate-400">{item.updated_at ? formatDateTime(item.updated_at) : '-'}</td>
                     {canEdit && (
                       <td>
                         <div className="flex flex-wrap gap-2">

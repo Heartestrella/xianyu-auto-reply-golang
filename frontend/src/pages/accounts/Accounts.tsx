@@ -1,3 +1,4 @@
+import { getServerDateInputValue } from '@/utils/date'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -1018,7 +1019,7 @@ export function Accounts() {
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `账号导出_${new Date().toISOString().slice(0, 10)}.xlsx`
+      a.download = `账号导出_${getServerDateInputValue()}.xlsx`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -2486,8 +2487,15 @@ export function Accounts() {
                           : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
                       }`}>
                         <span className={`status-dot ${account.online ? 'status-dot-success' : 'status-dot-danger'}`} />
-                        {account.online ? '在线' : '离线'}
+                        {account.online ? '聊天在线' : '聊天离线'}
                       </span>
+                      {!account.online && account.connection_error && (
+                        <p className="mt-1 max-w-[200px] text-xs text-amber-600 dark:text-amber-400" title={account.connection_error}>
+                          {/FAIL_SYS_USER_VALIDATE|RGV587|captcha/i.test(account.connection_error)
+                            ? '闲鱼要求安全验证，请在闲鱼完成验证后更新登录'
+                            : account.connection_error}
+                        </p>
+                      )}
                     </td>
                     <td>
                       <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded ${

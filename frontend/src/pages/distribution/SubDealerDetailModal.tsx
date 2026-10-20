@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/date'
 /**
  * 下级分销商对接明细弹窗
  * 
@@ -227,7 +228,7 @@ export function SubDealerDetailModal({ isOpen, onClose, dealer, onDataChange }: 
                           </span>
                         </td>
                         <td className="text-sm text-gray-500 whitespace-nowrap">
-                          {record.created_at ? new Date(record.created_at).toLocaleString('zh-CN') : '-'}
+                          {record.created_at ? formatDateTime(record.created_at) : '-'}
                         </td>
                         <td>
                           {record.status ? (

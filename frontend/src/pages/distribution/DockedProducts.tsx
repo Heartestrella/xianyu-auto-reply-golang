@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/date'
 /**
  * 对接商品页面
  * 
@@ -561,7 +562,7 @@ export function DockedProducts() {
                         {record.remark || '-'}
                       </td>
                       <td className="whitespace-nowrap text-xs text-slate-500">
-                        {record.created_at ? new Date(record.created_at).toLocaleString('zh-CN') : '-'}
+                        {record.created_at ? formatDateTime(record.created_at) : '-'}
                       </td>
                       <td className="whitespace-nowrap sticky right-0 bg-white dark:bg-slate-900 z-10">
                         <div className="flex items-center gap-1">
