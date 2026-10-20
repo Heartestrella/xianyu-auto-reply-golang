@@ -798,6 +798,11 @@ func (m *Manager) autoDeliver(ctx context.Context, a Account, orderNo string, v 
 	if strings.EqualFold(status, "shipped") || strings.EqualFold(status, "completed") {
 		return
 	}
+	deliveryState := map[string]any{}
+	_ = json.Unmarshal([]byte(raw), &deliveryState)
+	if boolSetting(deliveryState, "auto_delivered") || boolSetting(deliveryState, "card_only_delivered") {
+		return
+	}
 	if a.DeliveryDisabled || itemID == "" || buyerID == "" || v.ChatID == "" {
 		m.recordDeliveryFailure(ctx, a, orderNo, "账号已禁用自动发货，或订单缺少商品、买家、会话信息")
 		return
@@ -860,9 +865,13 @@ func (m *Manager) Redeliver(ctx context.Context, orderNo string) error {
 	}
 	data := map[string]any{}
 	_ = json.Unmarshal([]byte(raw), &data)
-	chatID := stringSetting(data, "chat_id", "chatId")
-	if chatID == "" {
-		return errors.New("订单缺少会话ID")
+	if boolSetting(data, "auto_delivered") || boolSetting(data, "card_only_delivered") {
+		return nil
+	}
+	chatID, err := EnsureOrderChat(ctx, m.db, ownerID, accountID, orderNo, m.CreateChat)
+	if err != nil {
+		m.recordDeliveryFailure(ctx, a, orderNo, err.Error())
+		return err
 	}
 	m.autoDeliver(ctx, a, orderNo, Incoming{AccountID: accountID, SenderID: buyerID, ChatID: chatID, ReceivedAt: time.Now()})
 	var updated string
