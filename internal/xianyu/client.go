@@ -802,7 +802,7 @@ func (m *Manager) autoDeliver(ctx context.Context, a Account, orderNo string, v 
 		m.recordDeliveryFailure(ctx, a, orderNo, "账号已禁用自动发货，或订单缺少商品、买家、会话信息")
 		return
 	}
-	card, err := m.takeDeliveryCard(ctx, a.OwnerID, itemID)
+	card, err := m.takeDeliveryCard(ctx, a.OwnerID, a.AccountID, itemID, raw)
 	if err != nil {
 		m.recordDeliveryFailure(ctx, a, orderNo, err.Error())
 		return
@@ -878,12 +878,13 @@ func (m *Manager) Redeliver(ctx context.Context, orderNo string) error {
 	return errors.New("补发未完成")
 }
 
-func (m *Manager) takeDeliveryCard(ctx context.Context, ownerID int64, itemID string) (deliveryCard, error) {
+func (m *Manager) takeDeliveryCard(ctx context.Context, ownerID int64, accountID, itemID, orderData string) (deliveryCard, error) {
 	var c deliveryCard
-	var typ, data string
-	if m.db.QueryRowContext(ctx, `SELECT c.id,c.type,c.data FROM cards c JOIN card_item_relations r ON r.card_id=c.id WHERE c.user_id=? AND c.enabled=1 AND r.item_id=? ORDER BY c.id LIMIT 1`, ownerID, itemID).Scan(&c.ID, &typ, &data) != nil {
-		return c, errors.New("未找到该商品可用的发货卡券")
+	id, typ, data, err := SelectDeliveryCard(ctx, m.db, ownerID, accountID, itemID, orderData)
+	if err != nil {
+		return c, err
 	}
+	c.ID = id
 	values := map[string]any{}
 	_ = json.Unmarshal([]byte(data), &values)
 	switch typ {

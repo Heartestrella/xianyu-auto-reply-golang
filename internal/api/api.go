@@ -51,6 +51,7 @@ type Server struct {
 	agreePickupMu   sync.Mutex
 	passwordMu      sync.Mutex
 	passwordLogins  map[string]*passwordLoginSession
+	orderMTOPCall   func(context.Context, xianyu.MTOPOptions) xianyu.MTOPResult
 }
 type response struct {
 	Success bool   `json:"success"`

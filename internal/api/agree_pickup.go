@@ -147,11 +147,11 @@ func (s *Server) pickupAccount(r *http.Request, o pickupOrder) (platformAccount,
 }
 func (s *Server) pickupCardContent(r *http.Request, o pickupOrder) (pickupCard, string) {
 	var card pickupCard
-	var typ, data string
-	e := s.db.QueryRowContext(r.Context(), `SELECT c.id,c.type,c.data FROM cards c JOIN card_item_relations rel ON rel.card_id=c.id WHERE c.user_id=? AND c.enabled=1 AND rel.item_id=? ORDER BY c.id LIMIT 1`, o.OwnerID, o.ItemID).Scan(&card.ID, &typ, &data)
+	id, typ, data, e := xianyu.SelectDeliveryCard(r.Context(), s.db, o.OwnerID, o.AccountID, o.ItemID, o.Data)
 	if e != nil {
-		return card, "未找到该商品可用的发货卡券"
+		return card, e.Error()
 	}
+	card.ID = id
 	m := map[string]any{}
 	_ = json.Unmarshal([]byte(data), &m)
 	switch typ {

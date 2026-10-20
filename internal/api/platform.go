@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
-	"strings"
 
 	"github.com/zhinianboke/xianyu-auto-go/internal/xianyu"
 )
@@ -169,7 +167,7 @@ func (s *Server) fetchOrders(w http.ResponseWriter, r *http.Request) {
 	for _, a := range accounts {
 		for page := 1; page <= 200; page++ {
 			data := map[string]any{"pageNumber": page, "rowsPerPage": 30, "orderIds": "", "queryCode": "ALL", "orderSearchParam": "{}"}
-			res := xianyu.MTOPCall(r.Context(), xianyu.MTOPOptions{API: "mtop.taobao.idle.trade.merchant.sold.get", Version: "1.0", Cookie: a.Cookie, Proxy: accountProxy(a), Origin: "https://seller.goofish.com", Referer: "https://seller.goofish.com/", Data: data, ExtraParams: map[string]string{"valueType": "string", "spm_cnt": "a21107h.42826273.0.0"}})
+			res := s.callOrderMTOP(r.Context(), xianyu.MTOPOptions{API: "mtop.taobao.idle.trade.merchant.sold.get", Version: "1.0", Cookie: a.Cookie, Proxy: accountProxy(a), Origin: "https://seller.goofish.com", Referer: "https://seller.goofish.com/", Data: data, ExtraParams: map[string]string{"valueType": "string", "spm_cnt": "a21107h.42826273.0.0"}})
 			if !res.Success {
 				failed++
 				errs = append(errs, a.AccountID+": "+res.Error)
@@ -186,7 +184,9 @@ func (s *Server) fetchOrders(w http.ResponseWriter, r *http.Request) {
 				if !okv {
 					continue
 				}
-				isNew, e := s.upsertSoldOrder(r, a, m)
+				account := xianyu.OrderSyncAccount{OwnerID: a.OwnerID, AccountID: a.AccountID, Cookie: a.Cookie, Proxy: accountProxy(a)}
+				isNew, e := xianyu.SyncSoldOrder(r.Context(), s.db, s.callOrderMTOP, &account, m, "ALL")
+				a.Cookie = account.Cookie
 				if e != nil {
 					failed++
 					continue
@@ -205,41 +205,3 @@ func (s *Server) fetchOrders(w http.ResponseWriter, r *http.Request) {
 	}
 	ok(w, "同步完成", map[string]any{"total_fetched": fetched, "new_inserted": inserted, "updated": updated, "failed": failed, "accounts_processed": len(accounts), "errors": errs})
 }
-func (s *Server) upsertSoldOrder(r *http.Request, a platformAccount, m map[string]any) (bool, error) {
-	common, _ := m["commonData"].(map[string]any)
-	buyer, _ := m["buyerInfoVO"].(map[string]any)
-	price, _ := m["priceVO"].(map[string]any)
-	right, _ := m["rightVO"].(map[string]any)
-	no := fmt.Sprint(common["orderId"])
-	if no == "" {
-		return false, fmt.Errorf("订单号为空")
-	}
-	statusMap := map[string]string{"待付款": "pending_payment", "待发货": "pending_ship", "已发货": "shipped", "交易成功": "completed", "交易关闭": "cancelled", "退款中": "refunding", "退款成功": "refunded", "已退款": "refunded", "退款关闭": "cancelled"}
-	status := statusMap[fmt.Sprint(common["orderStatus"])]
-	if status == "" {
-		status = "unknown"
-	}
-	if fmt.Sprint(common["inRefund"]) == "true" {
-		status = "refunding"
-	}
-	bargain := false
-	if btns, ok := right["btnList"].([]any); ok {
-		for _, v := range btns {
-			if x, ok := v.(map[string]any); ok && fmt.Sprint(x["tradeAction"]) == "SKIP_PIN" {
-				bargain = true
-			}
-		}
-	}
-	quantity, _ := strconv.Atoi(fmt.Sprint(price["buyNum"]))
-	if quantity < 1 {
-		quantity = 1
-	}
-	payload := map[string]any{"order_id": no, "order_no": no, "cookie_id": a.AccountID, "item_id": fmt.Sprint(common["itemId"]), "buyer_id": fmt.Sprint(buyer["buyerId"]), "buyer_fish_nick": fmt.Sprint(buyer["userNick"]), "receiver_name": fmt.Sprint(buyer["name"]), "receiver_phone": fmt.Sprint(buyer["phone"]), "receiver_address": fmt.Sprint(buyer["address"]), "amount": fmt.Sprint(price["totalPrice"]), "quantity": quantity, "status": status, "is_bargain": bargain, "is_rated": fmt.Sprint(common["sellerRateStatus"]) == "4", "placed_at": common["createTime"]}
-	b, _ := json.Marshal(payload)
-	var exists int
-	_ = s.db.QueryRowContext(r.Context(), `SELECT count(*) FROM xy_orders WHERE order_no=?`, no).Scan(&exists)
-	_, e := s.db.ExecContext(r.Context(), `INSERT INTO xy_orders(owner_id,account_id,order_no,item_id,buyer_id,status,data) VALUES(?,?,?,?,?,?,?) ON CONFLICT(order_no) DO UPDATE SET item_id=excluded.item_id,buyer_id=excluded.buyer_id,status=excluded.status,data=json_patch(COALESCE(xy_orders.data,'{}'),excluded.data),updated_at=CURRENT_TIMESTAMP`, a.OwnerID, a.AccountID, no, payload["item_id"], payload["buyer_id"], status, string(b))
-	return exists == 0, e
-}
-
-var _ = strings.TrimSpace
