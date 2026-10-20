@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/zhinianboke/xianyu-auto-go/internal/auth"
+	"github.com/zhinianboke/xianyu-auto-go/internal/scheduler"
 )
 
 func (s *Server) adminRoutes(r chi.Router) {
@@ -411,20 +412,16 @@ func (s *Server) scheduledTasks(w http.ResponseWriter, r *http.Request) {
 		for k, v := range extra {
 			m[k] = v
 		}
+		if code == "polish" {
+			m["run_start_time"], m["run_end_time"] = scheduler.PolishWindow(extra)
+			m["time_zone"] = time.Now().Format("MST -07:00")
+		}
 		out = append(out, m)
 	}
 	write(w, 200, map[string]any{"success": true, "data": out, "scheduler_running": true})
 }
 func (s *Server) scheduledTaskUpdate(w http.ResponseWriter, r *http.Request) {
-	interval, _ := strconv.Atoi(r.URL.Query().Get("interval_seconds"))
-	enabled := r.URL.Query().Get("enabled")
-	if interval > 0 {
-		_, _ = s.db.ExecContext(r.Context(), `UPDATE scheduled_tasks SET interval_seconds=? WHERE task_code=?`, interval, chi.URLParam(r, "code"))
-	}
-	if enabled != "" {
-		_, _ = s.db.ExecContext(r.Context(), `UPDATE scheduled_tasks SET enabled=? WHERE task_code=?`, enabled == "true", chi.URLParam(r, "code"))
-	}
-	ok(w, "任务配置已更新", map[string]any{"task_code": chi.URLParam(r, "code")})
+	s.updateScheduledTaskConfig(w, r)
 }
 func (s *Server) scheduledTaskTrigger(w http.ResponseWriter, r *http.Request) {
 	if s.triggerTask == nil {

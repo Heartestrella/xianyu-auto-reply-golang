@@ -88,6 +88,10 @@ func (e *Engine) scan(ctx context.Context) {
 		if rows.Scan(&code, &interval, &last, &data) != nil {
 			continue
 		}
+		cfg := map[string]any{}
+		if json.Unmarshal([]byte(data), &cfg) != nil || !canRunAutomatically(code, cfg, time.Now()) {
+			continue
+		}
 		due := true
 		if last.Valid {
 			if t, err := time.Parse("2006-01-02 15:04:05", last.String); err == nil {
