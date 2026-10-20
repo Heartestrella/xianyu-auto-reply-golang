@@ -110,11 +110,11 @@ func TestOrderDetailsRetryPreservesBaseAndIsolation(t *testing.T) {
 	if err = db.QueryRow(`SELECT status FROM xy_orders WHERE order_no=?`, no).Scan(&status); err != nil || status != "pending_ship" {
 		t.Fatal("base order was lost", err)
 	}
-	if _, err = SyncSoldOrder(ctx, db, call, &a, soldOrder(no), "ALL"); err != nil || calls != 1 {
-		t.Fatal("ALL repeated history hydration", calls, err)
+	if _, err = SyncSoldOrder(ctx, db, call, &a, soldOrder(no), "ALL"); err != nil || calls != 2 {
+		t.Fatal("ALL did not retry missing spec", calls, err)
 	}
 	if _, err = SyncSoldOrder(ctx, db, call, &a, soldOrder(no), "WAIT_SELLER_SEND_GOODS"); err != nil || calls != 2 {
-		t.Fatal("missing spec not retried", calls, err)
+		t.Fatal("completed spec was hydrated again", calls, err)
 	}
 	if _, err = SyncSoldOrder(ctx, db, call, &a, soldOrder("9000000000000000002"), "ALL"); err == nil {
 		t.Fatal("cross-account order accepted")
@@ -123,8 +123,8 @@ func TestOrderDetailsRetryPreservesBaseAndIsolation(t *testing.T) {
 	if err = db.QueryRow(`SELECT data FROM xy_orders WHERE order_no='9000000000000000002'`).Scan(&raw); err != nil || raw != `{"spec_name":"private"}` {
 		t.Fatal("other account modified", err)
 	}
-	if _, err = SyncSoldOrder(ctx, db, call, &a, soldOrder("9000000000000000003"), "ALL"); err != nil || calls != 2 {
-		t.Fatal("history was hydrated", err)
+	if _, err = SyncSoldOrder(ctx, db, call, &a, soldOrder("9000000000000000003"), "ALL"); err != nil || calls != 3 {
+		t.Fatal("pending order with missing spec was not hydrated", calls, err)
 	}
 	malformed := orderSpecResponse("invalid spec")
 	if _, err := parseOrderSpec(malformed.Response, "item", "buyer"); err == nil {

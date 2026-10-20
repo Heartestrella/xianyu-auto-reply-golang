@@ -72,7 +72,7 @@ func SyncSoldOrder(ctx context.Context, db *sql.DB, call func(context.Context, M
 	_ = json.Unmarshal([]byte(old), &previous)
 	missingSpec := stringSetting(previous, "spec_name") == "" || stringSetting(previous, "spec_value") == ""
 	knownSingle := boolSetting(previous, "order_detail_fetched") && stringSetting(previous, "spec_name") == "" && stringSetting(previous, "spec_value") == ""
-	if !newOrder && !(queryCode != "ALL" && status == "pending_ship" && missingSpec && !knownSingle) {
+	if !newOrder && !(status == "pending_ship" && missingSpec && !knownSingle) {
 		return false, nil
 	}
 	if call == nil {
