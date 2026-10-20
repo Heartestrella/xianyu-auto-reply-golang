@@ -1810,6 +1810,7 @@ func mergeJSON(m map[string]any, s string) {
 }
 
 func (s *Server) orders(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "private, no-store")
 	u := current(r)
 	p, n := page(r)
 	q := ` FROM xy_orders o LEFT JOIN xy_catalog_items ci ON ci.account_id=o.account_id AND ci.item_id=o.item_id WHERE 1=1`
@@ -1826,8 +1827,17 @@ func (s *Server) orders(w http.ResponseWriter, r *http.Request) {
 		q += ` AND o.status=?`
 		a = append(a, v)
 	}
+	if v := strings.TrimSpace(r.URL.Query().Get("search")); v != "" {
+		// 搜索条件同时用于总数与分页查询，并保留账号、状态及用户权限限制。
+		keyword := "%" + strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(v) + "%"
+		q += ` AND (o.order_no LIKE ? ESCAPE '\' OR o.item_id LIKE ? ESCAPE '\' OR o.buyer_id LIKE ? ESCAPE '\')`
+		a = append(a, keyword, keyword, keyword)
+	}
 	var total int
-	_ = s.db.QueryRowContext(r.Context(), `SELECT count(*)`+q, a...).Scan(&total)
+	if e := s.db.QueryRowContext(r.Context(), `SELECT count(*)`+q, a...).Scan(&total); e != nil {
+		fail(w, 500, e.Error())
+		return
+	}
 	a = append(a, n, (p-1)*n)
 	rows, e := s.db.QueryContext(r.Context(), `SELECT o.id,o.account_id,o.order_no,o.item_id,o.buyer_id,o.status,COALESCE(o.delivery_method,''),o.data,o.created_at,o.updated_at,COALESCE(json_extract(ci.data,'$.title'),json_extract(ci.data,'$.item_title'),json_extract(ci.data,'$.name'),'')`+q+` ORDER BY o.id DESC LIMIT ? OFFSET ?`, a...)
 	if e != nil {
