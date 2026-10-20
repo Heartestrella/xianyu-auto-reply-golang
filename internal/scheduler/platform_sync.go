@@ -12,6 +12,7 @@ import (
 )
 
 type syncAccount struct {
+	RedFlowerAfterShipment                  bool
 	ID, OwnerID                             int64
 	AccountID, Cookie, ProxyType, ProxyHost string
 	ProxyPort                               sql.NullInt64

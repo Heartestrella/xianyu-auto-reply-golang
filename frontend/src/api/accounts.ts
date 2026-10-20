@@ -72,6 +72,7 @@ export const getAccountDetailsPaginated = async (
     send_before_confirm?: boolean
     only_send_card?: boolean
     auto_red_flower?: boolean
+    red_flower_after_shipment?: boolean
     ai_reply_block_ordered_users?: boolean
     delivery_disabled?: boolean
     delivery_disabled_reason?: string
@@ -150,6 +151,7 @@ export const getAccountDetailsPaginated = async (
       send_before_confirm: item.send_before_confirm || false,
       only_send_card: item.only_send_card || false,
       auto_red_flower: item.auto_red_flower || false,
+      red_flower_after_shipment: item.red_flower_after_shipment || false,
       ai_reply_block_ordered_users: item.ai_reply_block_ordered_users || false,
       delivery_disabled: item.delivery_disabled || false,
       delivery_disabled_reason: item.delivery_disabled_reason || '',
@@ -828,4 +830,8 @@ export const importAccountsExcel = async (file: File, enableAll: boolean): Promi
     body: formData,
   })
   return response.json()
+}
+
+export const updateAccountRedFlowerAfterShipment = (id: string, enabled: boolean): Promise<ApiResponse> => {
+  return put(`${COOKIE_PREFIX}/${id}/red-flower-after-shipment`, { red_flower_after_shipment: enabled })
 }

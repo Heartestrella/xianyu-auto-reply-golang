@@ -281,6 +281,7 @@ func (s *Server) accountRoutes(r chi.Router) {
 	r.Put("/{id}/send-before-confirm", s.accountField("send_before_confirm", "send_before_confirm"))
 	r.Put("/{id}/only-send-card", s.accountField("only_send_card", "only_send_card"))
 	r.Put("/{id}/auto-red-flower", s.accountField("auto_red_flower", "auto_red_flower"))
+	r.Put("/{id}/red-flower-after-shipment", s.accountField("red_flower_after_shipment", "red_flower_after_shipment"))
 	r.Put("/{id}/ai-reply-block-ordered-users", s.accountField("ai_reply_block_ordered_users", "ai_reply_block_ordered_users"))
 	r.Put("/{id}/delivery-disabled", s.accountDeliveryDisabled)
 	r.Put("/{id}/login-info", s.accountLoginInfo)
@@ -1138,7 +1139,7 @@ func (s *Server) accountList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pageArgs := append(append([]any{}, args...), n, (p-1)*n)
-	rows, e := s.db.QueryContext(r.Context(), `SELECT a.id,a.account_id,a.cookie,a.status,a.remark,a.auto_confirm,a.show_browser,a.pause_duration,a.message_expire_time,a.reply_delay_seconds,a.scheduled_redelivery,a.scheduled_rate,a.auto_polish,a.confirm_before_send,a.send_before_confirm,a.only_send_card,a.auto_red_flower,a.ai_reply_block_ordered_users,a.delivery_disabled,a.delivery_disabled_reason,a.auto_close_order,a.delivery_only_card_after_close,a.delivery_disabled_excluded_items,a.disable_reason,a.created_at,a.updated_at,a.owner_id,COALESCE(owner.username,''),COALESCE(a.username,''),COALESCE(a.login_password,''),COALESCE(a.metadata,'{}'),
+	rows, e := s.db.QueryContext(r.Context(), `SELECT a.id,a.account_id,a.cookie,a.status,a.remark,a.auto_confirm,a.show_browser,a.pause_duration,a.message_expire_time,a.reply_delay_seconds,a.scheduled_redelivery,a.scheduled_rate,a.auto_polish,a.confirm_before_send,a.send_before_confirm,a.only_send_card,a.auto_red_flower,a.red_flower_after_shipment,a.ai_reply_block_ordered_users,a.delivery_disabled,a.delivery_disabled_reason,a.auto_close_order,a.delivery_only_card_after_close,a.delivery_disabled_excluded_items,a.disable_reason,a.created_at,a.updated_at,a.owner_id,COALESCE(owner.username,''),COALESCE(a.username,''),COALESCE(a.login_password,''),COALESCE(a.metadata,'{}'),
 		(SELECT count(*) FROM resource_records f WHERE f.owner_id=a.owner_id AND f.kind='message_filter' AND COALESCE(f.account_id,'')=a.account_id),
 		(SELECT count(*) FROM xy_keyword_rules k WHERE k.owner_id=a.owner_id AND k.account_id=a.account_id),
 		(SELECT count(*) FROM event_logs l WHERE l.owner_id=a.owner_id AND l.account_id=a.account_id AND l.kind IN ('auto_reply','ai_reply') AND upper(l.level)='INFO' AND date(l.created_at,'localtime')=date('now','localtime')),
@@ -1155,10 +1156,10 @@ func (s *Server) accountList(w http.ResponseWriter, r *http.Request) {
 		var remark, ddr, dr sql.NullString
 		var ownerUsername, username, loginPassword, metadata, connectionError string
 		var filterCount, keywordCount, todayReplyCount int
-		var ac, sb, sr, rate, polish, cbs, sbc, osc, flower, aib, dd, aco, doc bool
+		var ac, sb, sr, rate, polish, cbs, sbc, osc, flower, flowerAfterShipment, aib, dd, aco, doc bool
 		var pause, expire, delay int
 		var excluded string
-		e = rows.Scan(&id, &aid, &cookie, &status, &remark, &ac, &sb, &pause, &expire, &delay, &sr, &rate, &polish, &cbs, &sbc, &osc, &flower, &aib, &dd, &ddr, &aco, &doc, &excluded, &dr, &created, &updated, &ownerID, &ownerUsername, &username, &loginPassword, &metadata, &filterCount, &keywordCount, &todayReplyCount, &connectionError)
+		e = rows.Scan(&id, &aid, &cookie, &status, &remark, &ac, &sb, &pause, &expire, &delay, &sr, &rate, &polish, &cbs, &sbc, &osc, &flower, &flowerAfterShipment, &aib, &dd, &ddr, &aco, &doc, &excluded, &dr, &created, &updated, &ownerID, &ownerUsername, &username, &loginPassword, &metadata, &filterCount, &keywordCount, &todayReplyCount, &connectionError)
 		if e != nil {
 			continue
 		}
@@ -1175,7 +1176,7 @@ func (s *Server) accountList(w http.ResponseWriter, r *http.Request) {
 				aiEnabled, _ = ai["enabled"].(bool)
 			}
 		}
-		list = append(list, map[string]any{"pk": id, "id": aid, "value": cookie, "enabled": accountStatusEnabled(status), "online": online, "connection_error": connectionError, "remark": remark.String, "auto_confirm": ac, "show_browser": sb, "pause_duration": pause, "message_expire_time": expire, "reply_delay_seconds": delay, "scheduled_redelivery": sr, "scheduled_rate": rate, "auto_polish": polish, "confirm_before_send": cbs, "send_before_confirm": sbc, "only_send_card": osc, "auto_red_flower": flower, "ai_reply_block_ordered_users": aib, "delivery_disabled": dd, "delivery_disabled_reason": ddr.String, "auto_close_order": aco, "delivery_only_card_after_close": doc, "delivery_disabled_excluded_item_ids": smart(excluded), "disable_reason": dr.String, "username": username, "login_password": loginPassword, "ai_enabled": aiEnabled, "filter_count": filterCount, "keyword_count": keywordCount, "today_reply_count": todayReplyCount, "owner_id": ownerID, "owner_username": ownerUsername, "created_at": created, "updated_at": updated})
+		list = append(list, map[string]any{"pk": id, "id": aid, "value": cookie, "enabled": accountStatusEnabled(status), "online": online, "connection_error": connectionError, "remark": remark.String, "auto_confirm": ac, "show_browser": sb, "pause_duration": pause, "message_expire_time": expire, "reply_delay_seconds": delay, "scheduled_redelivery": sr, "scheduled_rate": rate, "auto_polish": polish, "confirm_before_send": cbs, "send_before_confirm": sbc, "only_send_card": osc, "auto_red_flower": flower, "red_flower_after_shipment": flowerAfterShipment, "ai_reply_block_ordered_users": aib, "delivery_disabled": dd, "delivery_disabled_reason": ddr.String, "auto_close_order": aco, "delivery_only_card_after_close": doc, "delivery_disabled_excluded_item_ids": smart(excluded), "disable_reason": dr.String, "username": username, "login_password": loginPassword, "ai_enabled": aiEnabled, "filter_count": filterCount, "keyword_count": keywordCount, "today_reply_count": todayReplyCount, "owner_id": ownerID, "owner_username": ownerUsername, "created_at": created, "updated_at": updated})
 	}
 	write(w, 200, map[string]any{"success": true, "data": list, "total": total, "page": p, "page_size": n, "total_pages": pages(total, n)})
 }
@@ -1235,7 +1236,22 @@ func (s *Server) accountField(column, key string) http.HandlerFunc {
 			fail(w, 404, "账号不存在或无权限访问")
 			return
 		}
-		res, e := s.db.ExecContext(r.Context(), `UPDATE xy_accounts SET `+column+`=?,updated_at=CURRENT_TIMESTAMP WHERE owner_id=? AND account_id=?`, v, ownerID, accountID)
+		assignment := column + `=?`
+		if column == "auto_red_flower" || column == "red_flower_after_shipment" {
+			flag, valid := v.(bool)
+			if !valid {
+				fail(w, 400, "求小红花开关必须为布尔值")
+				return
+			}
+			if column == "auto_red_flower" {
+				assignment += `,red_flower_after_shipment=0`
+			} else if flag {
+				assignment += `,auto_red_flower=1`
+			} else {
+				assignment += `,auto_red_flower=0`
+			}
+		}
+		res, e := s.db.ExecContext(r.Context(), `UPDATE xy_accounts SET `+assignment+`,updated_at=CURRENT_TIMESTAMP WHERE owner_id=? AND account_id=?`, v, ownerID, accountID)
 		affected(w, res, e, "设置更新成功")
 	}
 }

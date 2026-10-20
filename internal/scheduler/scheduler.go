@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/zhinianboke/xianyu-auto-go/internal/xianyu"
 )
 
 type Engine struct {
@@ -31,6 +33,7 @@ type Engine struct {
 	dmSend          func(context.Context) error
 	sellerFill      func(context.Context) error
 	autoOrder       func(context.Context) error
+	mtopCall        func(context.Context, xianyu.MTOPOptions) xianyu.MTOPResult
 }
 
 func New(db *sql.DB, log *slog.Logger) *Engine {
