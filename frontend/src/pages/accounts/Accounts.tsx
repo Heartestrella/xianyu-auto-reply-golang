@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, RefreshCw, QrCode, Key, Edit2, Trash2, Power, PowerOff, X, Loader2, Clock, CheckCircle, MessageSquare, Bot, Globe, Timer, ScanFace, ChevronLeft, ChevronRight, ChevronDown, ImagePlus, Filter, Repeat, MoreHorizontal, PackageCheck, Star, ShieldCheck, Flower2, Eye, EyeOff, Ban, Download, Upload, Send, Ticket, AlertCircle, Truck } from 'lucide-react'
-import { getAccountDetailsPaginated, deleteAccount, updateAccountCookie, updateAccountStatus, updateAccountsStatusBatch, closeAccountsNoticeBatch, clearTokenCacheBatch, updateAccountRemark, addAccount, generateQRLogin, checkQRLoginStatus, passwordLogin, checkPasswordLoginStatus, cancelPasswordLogin, updateAccountAutoConfirm, updateAccountPauseDuration, updateAccountMessageExpireTime, updateAccountReplyDelay, updateAccountLoginInfo, updateAccountScheduledRedelivery, updateAccountScheduledRate, updateAccountAutoPolish, updateAccountConfirmBeforeSend, updateAccountSendBeforeConfirm, updateAccountOnlySendCard, updateAccountAutoRedFlower, updateAccountAiReplyBlockOrderedUsers, getAIReplySettings, updateAIReplySettings, testAIConnection, fetchAIModels, AI_PROVIDER_OPTIONS, AI_PROVIDER_DEFAULT_BASE_URLS, getProxyConfig, updateProxyConfig, getFaceVerificationScreenshot, deleteFaceVerificationScreenshot, getConfirmReceiptMessage, updateConfirmReceiptMessage, uploadConfirmReceiptImage, exportAccountsExcel, importAccountsExcel, type AIProviderType, type AIModelOption, type ProxyConfig, type FaceVerificationScreenshot, type AccountFilterParams } from '@/api/accounts'
+import { getAccountDetailsPaginated, deleteAccount, updateAccountCookie, updateAccountStatus, updateAccountsStatusBatch, closeAccountsNoticeBatch, clearTokenCacheBatch, updateAccountRemark, addAccount, generateQRLogin, checkQRLoginStatus, passwordLogin, checkPasswordLoginStatus, cancelPasswordLogin, updateAccountAutoConfirm, updateAccountPauseDuration, updateAccountMessageExpireTime, updateAccountReplyDelay, updateAccountLoginInfo, updateAccountScheduledRedelivery, updateAccountScheduledRate, updateAccountAutoPolish, updateAccountConfirmBeforeSend, updateAccountSendBeforeConfirm, updateAccountOnlySendCard, updateAccountAutoRedFlower, updateAccountRedFlowerAfterShipment, updateAccountAiReplyBlockOrderedUsers, getAIReplySettings, updateAIReplySettings, testAIConnection, fetchAIModels, AI_PROVIDER_OPTIONS, AI_PROVIDER_DEFAULT_BASE_URLS, getProxyConfig, updateProxyConfig, getFaceVerificationScreenshot, deleteFaceVerificationScreenshot, getConfirmReceiptMessage, updateConfirmReceiptMessage, uploadConfirmReceiptImage, exportAccountsExcel, importAccountsExcel, type AIProviderType, type AIModelOption, type ProxyConfig, type FaceVerificationScreenshot, type AccountFilterParams } from '@/api/accounts'
 import { getDefaultReply, updateDefaultReply, uploadDefaultReplyImage } from '@/api/keywords'
 import { getAutoRateConfig, updateAutoRateConfig } from '@/api/autoRate'
 import { checkAdminDefaultPassword } from '@/api/auth'
@@ -1379,7 +1379,7 @@ export function Accounts() {
 
   // ==================== 自动求小红花开关 ====================
   const handleToggleAutoRedFlower = async (account: AccountWithKeywordCount) => {
-    const newEnabled = !account.auto_red_flower
+    const newEnabled = !(account.auto_red_flower && !account.red_flower_after_shipment)
     try {
       const result = await updateAccountAutoRedFlower(account.id, newEnabled)
       if (!result.success) {
@@ -1387,11 +1387,24 @@ export function Accounts() {
         return
       }
       setAccounts(prev => prev.map(a =>
-        a.id === account.id ? { ...a, auto_red_flower: newEnabled } : a,
+        a.id === account.id ? { ...a, auto_red_flower: newEnabled, red_flower_after_shipment: false } : a,
       ))
       addToast({ type: 'success', message: `自动求小红花已${newEnabled ? '开启' : '关闭'}` })
     } catch (error) {
       addToast({ type: 'error', message: getApiErrorMessage(error, '更新自动求小红花开关失败') })
+    }
+  }
+
+  const handleToggleRedFlowerAfterShipment = async (account: AccountWithKeywordCount) => {
+    const enabled = !account.red_flower_after_shipment
+    try {
+      const result = await updateAccountRedFlowerAfterShipment(account.id, enabled)
+      if (!result.success) throw new Error(result.message || '更新失败')
+      setAccounts(prev => prev.map(a => a.id === account.id
+        ? { ...a, auto_red_flower: enabled, red_flower_after_shipment: enabled } : a))
+      addToast({ type: 'success', message: enabled ? '已开启仅发货后求小红花' : '已关闭自动求小红花' })
+    } catch (error) {
+      addToast({ type: 'error', message: getApiErrorMessage(error, '更新求小红花模式失败') })
     }
   }
 
@@ -2618,14 +2631,25 @@ export function Accounts() {
                         <button
                           onClick={() => handleToggleAutoRedFlower(account)}
                           className={`inline-flex items-center gap-1 px-2 h-7 rounded text-xs whitespace-nowrap transition-colors ${
-                            account.auto_red_flower
+                            account.auto_red_flower && !account.red_flower_after_shipment
                               ? 'bg-pink-100 text-pink-700 hover:bg-pink-200 dark:bg-pink-900/30 dark:text-pink-300 dark:hover:bg-pink-900/50'
                               : 'bg-slate-100 text-slate-400 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-500 dark:hover:bg-slate-600'
                           }`}
-                          title={`自动求小红花：${account.auto_red_flower ? '已开启（点击关闭）' : '已关闭（点击开启）'}`}
+                          title={`自动求小红花（普通模式）：${account.auto_red_flower && !account.red_flower_after_shipment ? '已开启（点击关闭）' : '已关闭（点击开启）'}`}
                         >
                           <Flower2 className="w-3.5 h-3.5" />
                           <span>求小红花</span>
+                        </button>
+                        <button
+                          onClick={() => handleToggleRedFlowerAfterShipment(account)}
+                          aria-pressed={!!account.red_flower_after_shipment}
+                          className={`inline-flex items-center gap-1 px-2 h-7 rounded text-xs whitespace-nowrap transition-colors ${account.red_flower_after_shipment
+                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                            : 'bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-500'}`}
+                          title="仅对已发货、已完成订单求小红花；点击已选模式可关闭"
+                        >
+                          <Truck className="w-3.5 h-3.5" />
+                          <span>发货后求花</span>
                         </button>
                         {/* 已下单用户禁止AI回复 */}
                         <button

@@ -127,7 +127,7 @@ func (e *Engine) accountsWithFlag(ctx context.Context, column string) ([]syncAcc
 	if column != "auto_polish" && column != "scheduled_rate" && column != "auto_red_flower" {
 		return nil, fmt.Errorf("不支持的账号开关: %s", column)
 	}
-	rows, err := e.db.QueryContext(ctx, `SELECT id,owner_id,account_id,cookie,COALESCE(proxy_type,'none'),COALESCE(proxy_host,''),proxy_port,proxy_user,proxy_pass FROM xy_accounts WHERE status='active' AND `+column+`=1`)
+	rows, err := e.db.QueryContext(ctx, `SELECT id,owner_id,account_id,cookie,COALESCE(proxy_type,'none'),COALESCE(proxy_host,''),proxy_port,proxy_user,proxy_pass,red_flower_after_shipment FROM xy_accounts WHERE status='active' AND `+column+`=1`)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +135,7 @@ func (e *Engine) accountsWithFlag(ctx context.Context, column string) ([]syncAcc
 	out := []syncAccount{}
 	for rows.Next() {
 		var a syncAccount
-		if rows.Scan(&a.ID, &a.OwnerID, &a.AccountID, &a.Cookie, &a.ProxyType, &a.ProxyHost, &a.ProxyPort, &a.ProxyUser, &a.ProxyPass) == nil {
+		if rows.Scan(&a.ID, &a.OwnerID, &a.AccountID, &a.Cookie, &a.ProxyType, &a.ProxyHost, &a.ProxyPort, &a.ProxyUser, &a.ProxyPass, &a.RedFlowerAfterShipment) == nil {
 			out = append(out, a)
 		}
 	}
@@ -222,7 +222,7 @@ func (e *Engine) redFlower(ctx context.Context, _ map[string]any) error {
 	}
 	failures := []string{}
 	for _, a := range accounts {
-		rows, x := e.db.QueryContext(ctx, `SELECT order_no FROM xy_orders WHERE owner_id=? AND account_id=? AND status NOT IN ('cancelled','processing','refunding','refunded') AND COALESCE(json_extract(data,'$.is_red_flower'),0)=0 AND COALESCE(json_extract(data,'$.placed_at'),created_at)>=datetime('now','-10 days') ORDER BY id`, a.OwnerID, a.AccountID)
+		rows, x := e.db.QueryContext(ctx, `SELECT order_no FROM xy_orders WHERE owner_id=? AND account_id=? AND status NOT IN ('cancelled','processing','refunding','refunded') AND (?=0 OR lower(status) IN ('shipped','completed')) AND COALESCE(json_extract(data,'$.is_red_flower'),0)=0 AND COALESCE(json_extract(data,'$.placed_at'),created_at)>=datetime('now','-10 days') ORDER BY id`, a.OwnerID, a.AccountID, a.RedFlowerAfterShipment)
 		if x != nil {
 			return x
 		}
@@ -235,7 +235,7 @@ func (e *Engine) redFlower(ctx context.Context, _ map[string]any) error {
 		}
 		rows.Close()
 		for _, orderNo := range orders {
-			res := xianyu.MTOPCall(ctx, xianyu.MTOPOptions{API: "mtop.taobao.idlemessage.red.flower", Version: "4.0", Cookie: a.Cookie, Proxy: syncProxy(a), Data: map[string]any{"orderId": orderNo, "channel": "list"}})
+			res := e.callMTOP(ctx, xianyu.MTOPOptions{API: "mtop.taobao.idlemessage.red.flower", Version: "1.0", Cookie: a.Cookie, Proxy: syncProxy(a), Data: map[string]any{"orderId": orderNo, "channel": "list"}})
 			if res.Cookie != "" && res.Cookie != a.Cookie {
 				a.Cookie = res.Cookie
 				_, _ = e.db.ExecContext(ctx, `UPDATE xy_accounts SET cookie=?,last_refresh_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?`, a.Cookie, a.ID)

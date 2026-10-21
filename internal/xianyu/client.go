@@ -798,11 +798,16 @@ func (m *Manager) autoDeliver(ctx context.Context, a Account, orderNo string, v 
 	if strings.EqualFold(status, "shipped") || strings.EqualFold(status, "completed") {
 		return
 	}
+	deliveryState := map[string]any{}
+	_ = json.Unmarshal([]byte(raw), &deliveryState)
+	if boolSetting(deliveryState, "auto_delivered") || boolSetting(deliveryState, "card_only_delivered") {
+		return
+	}
 	if a.DeliveryDisabled || itemID == "" || buyerID == "" || v.ChatID == "" {
 		m.recordDeliveryFailure(ctx, a, orderNo, "账号已禁用自动发货，或订单缺少商品、买家、会话信息")
 		return
 	}
-	card, err := m.takeDeliveryCard(ctx, a.OwnerID, itemID)
+	card, err := m.takeDeliveryCard(ctx, a.OwnerID, a.AccountID, itemID, raw)
 	if err != nil {
 		m.recordDeliveryFailure(ctx, a, orderNo, err.Error())
 		return
@@ -860,9 +865,13 @@ func (m *Manager) Redeliver(ctx context.Context, orderNo string) error {
 	}
 	data := map[string]any{}
 	_ = json.Unmarshal([]byte(raw), &data)
-	chatID := stringSetting(data, "chat_id", "chatId")
-	if chatID == "" {
-		return errors.New("订单缺少会话ID")
+	if boolSetting(data, "auto_delivered") || boolSetting(data, "card_only_delivered") {
+		return nil
+	}
+	chatID, err := EnsureOrderChat(ctx, m.db, ownerID, accountID, orderNo, m.CreateChat)
+	if err != nil {
+		m.recordDeliveryFailure(ctx, a, orderNo, err.Error())
+		return err
 	}
 	m.autoDeliver(ctx, a, orderNo, Incoming{AccountID: accountID, SenderID: buyerID, ChatID: chatID, ReceivedAt: time.Now()})
 	var updated string
@@ -878,12 +887,13 @@ func (m *Manager) Redeliver(ctx context.Context, orderNo string) error {
 	return errors.New("补发未完成")
 }
 
-func (m *Manager) takeDeliveryCard(ctx context.Context, ownerID int64, itemID string) (deliveryCard, error) {
+func (m *Manager) takeDeliveryCard(ctx context.Context, ownerID int64, accountID, itemID, orderData string) (deliveryCard, error) {
 	var c deliveryCard
-	var typ, data string
-	if m.db.QueryRowContext(ctx, `SELECT c.id,c.type,c.data FROM cards c JOIN card_item_relations r ON r.card_id=c.id WHERE c.user_id=? AND c.enabled=1 AND r.item_id=? ORDER BY c.id LIMIT 1`, ownerID, itemID).Scan(&c.ID, &typ, &data) != nil {
-		return c, errors.New("未找到该商品可用的发货卡券")
+	id, typ, data, err := SelectDeliveryCard(ctx, m.db, ownerID, accountID, itemID, orderData)
+	if err != nil {
+		return c, err
 	}
+	c.ID = id
 	values := map[string]any{}
 	_ = json.Unmarshal([]byte(data), &values)
 	switch typ {

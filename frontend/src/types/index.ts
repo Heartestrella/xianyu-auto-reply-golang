@@ -57,6 +57,7 @@ export interface Account {
   send_before_confirm?: boolean
   only_send_card?: boolean
   auto_red_flower?: boolean
+  red_flower_after_shipment?: boolean
   ai_reply_block_ordered_users?: boolean
   agree_deliver_enabled?: boolean
   delivery_disabled?: boolean
