@@ -15,8 +15,15 @@ type OrderSyncAccount struct {
 	AccountID, Cookie, Proxy string
 }
 
+// These are filters for merchant.sold.get, not trade-status enum values.
+// WAIT_SELLER_SEND_GOODS returns an unfiltered list on this endpoint.
+const (
+	SoldOrderQueryAll     = "ALL"
+	SoldOrderQueryPending = "NOT_SHIP"
+)
+
 // SyncSoldOrder commits the list entry before fetching details. A failed detail
-// request leaves the base order available for a later pending-order retry.
+// request leaves the base order available for a later retry through any sync.
 func SyncSoldOrder(ctx context.Context, db *sql.DB, call func(context.Context, MTOPOptions) MTOPResult, a *OrderSyncAccount, item map[string]any, queryCode string) (bool, error) {
 	common := orderMap(item, "commonData")
 	buyer := orderMap(item, "buyerInfoVO")
@@ -72,6 +79,8 @@ func SyncSoldOrder(ctx context.Context, db *sql.DB, call func(context.Context, M
 	_ = json.Unmarshal([]byte(old), &previous)
 	missingSpec := stringSetting(previous, "spec_name") == "" || stringSetting(previous, "spec_value") == ""
 	knownSingle := boolSetting(previous, "order_detail_fetched") && stringSetting(previous, "spec_name") == "" && stringSetting(previous, "spec_value") == ""
+	// ALL also includes pending orders. Decide from the returned order state,
+	// so manual/general sync can repair orders already ingested by IM.
 	if !newOrder && !(status == "pending_ship" && missingSpec && !knownSingle) {
 		return false, nil
 	}

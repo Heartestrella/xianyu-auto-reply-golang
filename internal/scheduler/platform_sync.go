@@ -100,10 +100,10 @@ func (e *Engine) fetchItems(ctx context.Context, _ map[string]any) error {
 }
 
 func (e *Engine) fetchOrders(ctx context.Context, _ map[string]any) error {
-	return e.fetchOrdersByCode(ctx, "ALL")
+	return e.fetchOrdersByCode(ctx, xianyu.SoldOrderQueryAll)
 }
 func (e *Engine) fetchPendingOrders(ctx context.Context, _ map[string]any) error {
-	return e.fetchOrdersByCode(ctx, "WAIT_SELLER_SEND_GOODS")
+	return e.fetchOrdersByCode(ctx, xianyu.SoldOrderQueryPending)
 }
 func (e *Engine) fetchRefundOrders(ctx context.Context, _ map[string]any) error {
 	return e.fetchOrdersByCode(ctx, "REFUNDING")

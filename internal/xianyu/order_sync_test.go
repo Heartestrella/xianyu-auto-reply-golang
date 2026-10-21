@@ -68,7 +68,7 @@ func TestOrderSpecHydrationAndMatching(t *testing.T) {
 			t.Fatal("complete order was hydrated twice")
 			return MTOPResult{}
 		}
-		if _, err = SyncSoldOrder(ctx, db, unexpected, &a, soldOrder(no), "WAIT_SELLER_SEND_GOODS"); err != nil {
+		if _, err = SyncSoldOrder(ctx, db, unexpected, &a, soldOrder(no), "NOT_SHIP"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -113,7 +113,7 @@ func TestOrderDetailsRetryPreservesBaseAndIsolation(t *testing.T) {
 	if _, err = SyncSoldOrder(ctx, db, call, &a, soldOrder(no), "ALL"); err != nil || calls != 2 {
 		t.Fatal("ALL did not retry missing spec", calls, err)
 	}
-	if _, err = SyncSoldOrder(ctx, db, call, &a, soldOrder(no), "WAIT_SELLER_SEND_GOODS"); err != nil || calls != 2 {
+	if _, err = SyncSoldOrder(ctx, db, call, &a, soldOrder(no), "NOT_SHIP"); err != nil || calls != 2 {
 		t.Fatal("completed spec was hydrated again", calls, err)
 	}
 	if _, err = SyncSoldOrder(ctx, db, call, &a, soldOrder("9000000000000000002"), "ALL"); err == nil {
@@ -146,11 +146,55 @@ func TestSingleSpecOrdersDoNotFetchDetailsForever(t *testing.T) {
 	calls := 0
 	call := func(context.Context, MTOPOptions) MTOPResult { calls++; return orderSpecResponse("") }
 	for i := 0; i < 3; i++ {
-		if _, err := SyncSoldOrder(context.Background(), db, call, &a, soldOrder("9000000000000000001"), "WAIT_SELLER_SEND_GOODS"); err != nil {
+		if _, err := SyncSoldOrder(context.Background(), db, call, &a, soldOrder("9000000000000000001"), "NOT_SHIP"); err != nil {
 			t.Fatal(err)
 		}
 	}
 	if calls != 1 {
 		t.Fatalf("single-spec detail calls: %d", calls)
+	}
+}
+
+func TestOrderHydrationEligibilityAcrossSyncEntrypoints(t *testing.T) {
+	for _, query := range []string{"ALL", "NOT_SHIP"} {
+		for _, tc := range []struct {
+			name, status, data   string
+			newOrder, wantDetail bool
+		}{
+			{"new order", "待发货", `{}`, true, true},
+			{"IM base record", "待发货", `{"chat_id":"chat"}`, false, true},
+			{"missing value", "待发货", `{"spec_name":"套餐"}`, false, true},
+			{"missing name", "待发货", `{"spec_value":"月卡"}`, false, true},
+			{"retry incomplete detail", "待发货", `{"order_detail_fetched":true,"spec_name":"套餐"}`, false, true},
+			{"complete spec", "待发货", `{"spec_name":"套餐","spec_value":"月卡"}`, false, false},
+			{"known single spec", "待发货", `{"order_detail_fetched":true}`, false, false},
+			{"completed history", "交易成功", `{}`, false, false},
+			{"shipped history", "已发货", `{}`, false, false},
+			{"cancelled history", "交易关闭", `{}`, false, false},
+			{"refund in progress", "退款中", `{}`, false, false},
+		} {
+			t.Run(query+"/"+tc.name, func(t *testing.T) {
+				db, err := database.Open(filepath.Join(t.TempDir(), "eligibility.db"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer db.Close()
+				no := "9000000000000000001"
+				if !tc.newOrder {
+					if _, err := db.Exec(`INSERT INTO xy_orders(owner_id,account_id,order_no,status,data) VALUES(1,'a',?,'pending_ship',?)`, no, tc.data); err != nil {
+						t.Fatal(err)
+					}
+				}
+				item := soldOrder(no)
+				item["commonData"].(map[string]any)["orderStatus"] = tc.status
+				calls := 0
+				call := func(context.Context, MTOPOptions) MTOPResult { calls++; return orderSpecResponse("套餐:月卡") }
+				a := OrderSyncAccount{OwnerID: 1, AccountID: "a"}
+				created, err := SyncSoldOrder(context.Background(), db, call, &a, item, query)
+				if err != nil || created != tc.newOrder || (calls == 1) != tc.wantDetail {
+					t.Fatalf("created=%v calls=%d err=%v", created, calls, err)
+				}
+			})
+		}
 	}
 }

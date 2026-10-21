@@ -166,7 +166,7 @@ func (s *Server) fetchOrders(w http.ResponseWriter, r *http.Request) {
 	errs := []string{}
 	for _, a := range accounts {
 		for page := 1; page <= 200; page++ {
-			data := map[string]any{"pageNumber": page, "rowsPerPage": 30, "orderIds": "", "queryCode": "ALL", "orderSearchParam": "{}"}
+			data := map[string]any{"pageNumber": page, "rowsPerPage": 30, "orderIds": "", "queryCode": xianyu.SoldOrderQueryAll, "orderSearchParam": "{}"}
 			res := s.callOrderMTOP(r.Context(), xianyu.MTOPOptions{API: "mtop.taobao.idle.trade.merchant.sold.get", Version: "1.0", Cookie: a.Cookie, Proxy: accountProxy(a), Origin: "https://seller.goofish.com", Referer: "https://seller.goofish.com/", Data: data, ExtraParams: map[string]string{"valueType": "string", "spm_cnt": "a21107h.42826273.0.0"}})
 			if !res.Success {
 				failed++
@@ -185,7 +185,7 @@ func (s *Server) fetchOrders(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 				account := xianyu.OrderSyncAccount{OwnerID: a.OwnerID, AccountID: a.AccountID, Cookie: a.Cookie, Proxy: accountProxy(a)}
-				isNew, e := xianyu.SyncSoldOrder(r.Context(), s.db, s.callOrderMTOP, &account, m, "ALL")
+				isNew, e := xianyu.SyncSoldOrder(r.Context(), s.db, s.callOrderMTOP, &account, m, xianyu.SoldOrderQueryAll)
 				a.Cookie = account.Cookie
 				if e != nil {
 					failed++
