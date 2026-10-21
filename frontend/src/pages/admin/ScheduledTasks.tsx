@@ -23,6 +23,8 @@ export function ScheduledTasks() {
   // 编辑状态
   const [editingTask, setEditingTask] = useState<string | null>(null)
   const [editInterval, setEditInterval] = useState<number>(0)
+  const [editStart, setEditStart] = useState('00:00')
+  const [editEnd, setEditEnd] = useState('23:59')
   const [updating, setUpdating] = useState<string | null>(null)
   const [triggering, setTriggering] = useState<string | null>(null)
 
@@ -85,6 +87,8 @@ export function ScheduledTasks() {
   const handleStartEdit = (task: ScheduledTask) => {
     setEditingTask(task.task_code)
     setEditInterval(task.interval_seconds)
+    setEditStart(task.run_start_time || '00:00')
+    setEditEnd(task.run_end_time || '23:59')
   }
 
   // 取消编辑
@@ -100,9 +104,13 @@ export function ScheduledTasks() {
       return
     }
     
+    if (taskCode === 'polish' && (!editStart || !editEnd || editStart > editEnd)) {
+      addToast({ type: 'error', message: '请选择同一天内有效的开始和结束时间' })
+      return
+    }
     setUpdating(taskCode)
     try {
-      const result = await updateScheduledTask(taskCode, { interval_seconds: editInterval })
+      const result = await updateScheduledTask(taskCode, { interval_seconds: editInterval, ...(taskCode === 'polish' ? { run_start_time: editStart, run_end_time: editEnd } : {}) })
       if (result.success) {
         addToast({ type: 'success', message: result.message })
         setEditingTask(null)
@@ -157,6 +165,7 @@ export function ScheduledTasks() {
                 <th>任务名称</th>
                 <th>任务代码</th>
                 <th>执行间隔</th>
+                <th>每日执行时段</th>
                 <th>启用状态</th>
                 <th>描述</th>
                 <th>操作</th>
@@ -165,7 +174,7 @@ export function ScheduledTasks() {
             <tbody>
               {tasks.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-8 text-slate-500 dark:text-slate-400">
+                  <td colSpan={7} className="text-center py-8 text-slate-500 dark:text-slate-400">
                     <div className="flex flex-col items-center gap-2">
                       <Clock className="w-12 h-12 text-slate-300 dark:text-slate-600" />
                       <p>暂无定时任务</p>
@@ -225,6 +234,20 @@ export function ScheduledTasks() {
                           </button>
                         </div>
                       )}
+                    </td>
+                    <td>
+                      {task.task_code === 'polish' ? (
+                        <div className="space-y-1">
+                          {editingTask === task.task_code ? (
+                            <div className="flex items-center gap-1">
+                              <input type="time" aria-label="擦亮开始时间" value={editStart} onChange={e => setEditStart(e.target.value)} className="input-ios w-32" />
+                              <span>至</span>
+                              <input type="time" aria-label="擦亮结束时间" value={editEnd} onChange={e => setEditEnd(e.target.value)} className="input-ios w-32" />
+                            </div>
+                          ) : <span>{task.run_start_time || '00:00'}–{task.run_end_time || '23:59'}</span>}
+                          <p className="text-xs text-slate-500">服务器时间 {task.time_zone}；手动执行不限时段</p>
+                        </div>
+                      ) : <span className="text-slate-400">全天</span>}
                     </td>
                     <td>
                       {task.enabled ? (

@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/zhinianboke/xianyu-auto-go/internal/auth"
+	"github.com/zhinianboke/xianyu-auto-go/internal/scheduler"
 )
 
 func (s *Server) adminRoutes(r chi.Router) {
@@ -251,7 +252,7 @@ func (s *Server) adminRecharge(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) adminStats(w http.ResponseWriter, r *http.Request) {
 	out := map[string]any{"success": true}
-	queries := map[string]string{"total_users": `SELECT count(*) FROM xy_users`, "total_cookies": `SELECT count(*) FROM xy_accounts`, "active_cookies": `SELECT count(*) FROM xy_accounts WHERE status='active'`, "total_cards": `SELECT count(*) FROM cards`, "total_keywords": `SELECT count(*) FROM xy_keyword_rules`, "total_orders": `SELECT count(*) FROM xy_orders`, "today_reply_count": `SELECT count(*) FROM event_logs WHERE kind='auto_reply' AND date(created_at)=date('now','localtime')`, "yesterday_reply_count": `SELECT count(*) FROM event_logs WHERE kind='auto_reply' AND date(created_at)=date('now','localtime','-1 day')`}
+	queries := map[string]string{"total_users": `SELECT count(*) FROM xy_users`, "total_cookies": `SELECT count(*) FROM xy_accounts`, "active_cookies": `SELECT count(*) FROM xy_accounts WHERE status='active'`, "total_cards": `SELECT count(*) FROM cards`, "total_keywords": `SELECT count(*) FROM xy_keyword_rules`, "total_orders": `SELECT count(*) FROM xy_orders`, "today_reply_count": `SELECT count(*) FROM event_logs WHERE kind='auto_reply' AND date(created_at,'localtime')=date('now','localtime')`, "yesterday_reply_count": `SELECT count(*) FROM event_logs WHERE kind='auto_reply' AND date(created_at,'localtime')=date('now','localtime','-1 day')`}
 	for k, q := range queries {
 		var n int
 		_ = s.db.QueryRowContext(r.Context(), q).Scan(&n)
@@ -274,7 +275,7 @@ func (s *Server) adminStats(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) todayStats(w http.ResponseWriter, r *http.Request) {
 	out := map[string]any{"success": true}
-	for k, q := range map[string]string{"today_users": `SELECT count(*) FROM xy_users WHERE date(created_at)=date('now','localtime')`, "today_accounts": `SELECT count(*) FROM xy_accounts WHERE date(created_at)=date('now','localtime')`, "today_orders": `SELECT count(*) FROM xy_orders WHERE date(created_at)=date('now','localtime')`, "today_shipped": `SELECT count(*) FROM xy_orders WHERE status='shipped' AND date(updated_at)=date('now','localtime')`, "today_pending": `SELECT count(*) FROM xy_orders WHERE status='pending_ship' AND date(created_at)=date('now','localtime')`} {
+	for k, q := range map[string]string{"today_users": `SELECT count(*) FROM xy_users WHERE date(created_at,'localtime')=date('now','localtime')`, "today_accounts": `SELECT count(*) FROM xy_accounts WHERE date(created_at,'localtime')=date('now','localtime')`, "today_orders": `SELECT count(*) FROM xy_orders WHERE date(created_at,'localtime')=date('now','localtime')`, "today_shipped": `SELECT count(*) FROM xy_orders WHERE status='shipped' AND date(updated_at,'localtime')=date('now','localtime')`, "today_pending": `SELECT count(*) FROM xy_orders WHERE status='pending_ship' AND date(created_at,'localtime')=date('now','localtime')`} {
 		var n int
 		_ = s.db.QueryRowContext(r.Context(), q).Scan(&n)
 		out[k] = n
@@ -288,19 +289,48 @@ func (s *Server) adminLogs(w http.ResponseWriter, r *http.Request) {
 	if lines < 1 || lines > 5000 {
 		lines = 200
 	}
-	rows, e := s.db.QueryContext(r.Context(), `SELECT created_at,level,kind,message FROM event_logs ORDER BY id DESC LIMIT ?`, lines)
+	query := `SELECT id,created_at,level,kind,COALESCE(message,'') FROM event_logs WHERE 1=1`
+	args := []any{}
+	if level := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("level"))); level != "" {
+		if level == "WARNING" {
+			level = "WARN"
+		}
+		query += ` AND upper(level) IN (?,?)`
+		other := level
+		if level == "WARN" {
+			other = "WARNING"
+		}
+		args = append(args, level, other)
+	}
+	args = append(args, lines)
+	rows, e := s.db.QueryContext(r.Context(), query+` ORDER BY id DESC LIMIT ?`, args...)
 	if e != nil {
 		fail(w, 500, e.Error())
 		return
 	}
 	defer rows.Close()
 	logs := []string{}
+	items := []map[string]any{}
 	for rows.Next() {
+		var id int64
 		var t, l, k, m string
-		_ = rows.Scan(&t, &l, &k, &m)
-		logs = append(logs, fmt.Sprintf("%s %s [%s] %s", t, l, k, m))
+		if err := rows.Scan(&id, &t, &l, &k, &m); err != nil {
+			fail(w, 500, err.Error())
+			return
+		}
+		local := databaseTimeInServerZone(t)
+		logs = append(logs, fmt.Sprintf("%s %s [%s] %s", local, l, k, m))
+		level := strings.ToLower(l)
+		if level == "warn" {
+			level = "warning"
+		}
+		items = append(items, map[string]any{"id": fmt.Sprint(id), "created_at": local, "level": level, "module": k, "message": m})
 	}
-	write(w, 200, map[string]any{"logs": logs, "total": len(logs)})
+	if err := rows.Err(); err != nil {
+		fail(w, 500, err.Error())
+		return
+	}
+	write(w, 200, map[string]any{"success": true, "data": items, "logs": logs, "total": len(logs)})
 }
 func (s *Server) adminLogsClear(w http.ResponseWriter, r *http.Request) {
 	_, e := s.db.ExecContext(r.Context(), `DELETE FROM event_logs`)
@@ -313,7 +343,18 @@ func (s *Server) adminLogsClear(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) adminEventKindClear(kind string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		res, err := s.db.ExecContext(r.Context(), `DELETE FROM event_logs WHERE kind=? OR kind LIKE ?`, kind, kind+"%")
+		query := `DELETE FROM event_logs WHERE kind IN (?,?)`
+		args := []any{kind, "scheduled_" + kind}
+		if r.URL.Query().Has("days") {
+			days, err := strconv.Atoi(r.URL.Query().Get("days"))
+			if err != nil || days < 1 || days > 36500 {
+				fail(w, 400, "保留天数必须为正整数")
+				return
+			}
+			query += ` AND created_at<datetime('now',?)`
+			args = append(args, fmt.Sprintf("-%d days", days))
+		}
+		res, err := s.db.ExecContext(r.Context(), query, args...)
 		if err != nil {
 			fail(w, 500, err.Error())
 			return
@@ -338,7 +379,7 @@ func (s *Server) adminLogsExport(w http.ResponseWriter, r *http.Request) {
 		var id int64
 		var created, level, kind, account, message, data string
 		if rows.Scan(&id, &created, &level, &kind, &account, &message, &data) == nil {
-			_ = writer.Write([]string{fmt.Sprint(id), created, level, kind, account, message, data})
+			_ = writer.Write([]string{fmt.Sprint(id), databaseTimeInServerZone(created), level, kind, account, message, data})
 		}
 	}
 	writer.Flush()
@@ -351,56 +392,6 @@ func (s *Server) adminLogFiles(w http.ResponseWriter, r *http.Request) {
 	write(w, 200, map[string]any{"success": true, "data": []map[string]any{{"name": "sqlite:event_logs", "size": count, "created_at": nullText(first), "updated_at": nullText(last)}}})
 }
 
-func (s *Server) adminBatchList(kind string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		p, size := page(r)
-		query := ` FROM event_logs WHERE kind=? OR kind LIKE ?`
-		args := []any{kind, kind + "%"}
-		var total int
-		_ = s.db.QueryRowContext(r.Context(), `SELECT count(DISTINCT COALESCE(json_extract(data,'$.batch_id'),id))`+query, args...).Scan(&total)
-		args = append(args, size, (p-1)*size)
-		rows, err := s.db.QueryContext(r.Context(), `SELECT COALESCE(json_extract(data,'$.batch_id'),CAST(id AS TEXT)),min(created_at),max(created_at),count(*),sum(CASE WHEN json_extract(data,'$.status')='failed' OR lower(level)='error' THEN 1 ELSE 0 END)`+query+` GROUP BY 1 ORDER BY max(id) DESC LIMIT ? OFFSET ?`, args...)
-		if err != nil {
-			fail(w, 500, err.Error())
-			return
-		}
-		defer rows.Close()
-		items := []map[string]any{}
-		for rows.Next() {
-			var id, created, updated string
-			var totalCount, failed int
-			_ = rows.Scan(&id, &created, &updated, &totalCount, &failed)
-			items = append(items, map[string]any{"batch_id": id, "status": map[bool]string{true: "partial", false: "completed"}[failed > 0], "total": totalCount, "success_count": totalCount - failed, "failed_count": failed, "created_at": created, "updated_at": updated})
-		}
-		ok(w, "查询成功", map[string]any{"items": items, "list": items, "total": total, "page": p, "page_size": size, "total_pages": pages(total, size)})
-	}
-}
-
-func (s *Server) adminBatchDetail(kind string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		id := chi.URLParam(r, "batch_id")
-		rows, err := s.db.QueryContext(r.Context(), `SELECT id,owner_id,COALESCE(account_id,''),level,message,data,created_at FROM event_logs WHERE (kind=? OR kind LIKE ?) AND (CAST(id AS TEXT)=? OR json_extract(data,'$.batch_id')=?) ORDER BY id`, kind, kind+"%", id, id)
-		if err != nil {
-			fail(w, 500, err.Error())
-			return
-		}
-		defer rows.Close()
-		items := []map[string]any{}
-		for rows.Next() {
-			var rowID, owner int64
-			var account, level, message, raw, created string
-			_ = rows.Scan(&rowID, &owner, &account, &level, &message, &raw, &created)
-			m := map[string]any{"id": rowID, "owner_id": owner, "account_id": account, "level": level, "message": message, "created_at": created}
-			mergeJSON(m, raw)
-			items = append(items, m)
-		}
-		if len(items) == 0 {
-			fail(w, 404, "批次不存在")
-			return
-		}
-		ok(w, "查询成功", map[string]any{"batch_id": id, "items": items, "total": len(items)})
-	}
-}
 func (s *Server) scheduledTasks(w http.ResponseWriter, r *http.Request) {
 	rows, e := s.db.QueryContext(r.Context(), `SELECT rowid,task_code,enabled,COALESCE(interval_seconds,0),COALESCE(last_run_at,''),COALESCE(next_run_at,''),data FROM scheduled_tasks ORDER BY rowid`)
 	if e != nil {
@@ -421,20 +412,16 @@ func (s *Server) scheduledTasks(w http.ResponseWriter, r *http.Request) {
 		for k, v := range extra {
 			m[k] = v
 		}
+		if code == "polish" {
+			m["run_start_time"], m["run_end_time"] = scheduler.PolishWindow(extra)
+			m["time_zone"] = time.Now().Format("MST -07:00")
+		}
 		out = append(out, m)
 	}
 	write(w, 200, map[string]any{"success": true, "data": out, "scheduler_running": true})
 }
 func (s *Server) scheduledTaskUpdate(w http.ResponseWriter, r *http.Request) {
-	interval, _ := strconv.Atoi(r.URL.Query().Get("interval_seconds"))
-	enabled := r.URL.Query().Get("enabled")
-	if interval > 0 {
-		_, _ = s.db.ExecContext(r.Context(), `UPDATE scheduled_tasks SET interval_seconds=? WHERE task_code=?`, interval, chi.URLParam(r, "code"))
-	}
-	if enabled != "" {
-		_, _ = s.db.ExecContext(r.Context(), `UPDATE scheduled_tasks SET enabled=? WHERE task_code=?`, enabled == "true", chi.URLParam(r, "code"))
-	}
-	ok(w, "任务配置已更新", map[string]any{"task_code": chi.URLParam(r, "code")})
+	s.updateScheduledTaskConfig(w, r)
 }
 func (s *Server) scheduledTaskTrigger(w http.ResponseWriter, r *http.Request) {
 	if s.triggerTask == nil {

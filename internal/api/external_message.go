@@ -1,6 +1,7 @@
 package api
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -27,11 +28,12 @@ func (s *Server) externalSendMessage(w http.ResponseWriter, r *http.Request) {
 		write(w, http.StatusOK, response{Success: false, Message: "API秘钥不能为空"})
 		return
 	}
-	secret := s.cfg.APISecretKey
+	secret := strings.TrimSpace(s.cfg.APISecretKey)
 	if secret == "" {
-		secret = "xianyu_api_secret_2024"
+		write(w, http.StatusOK, response{Success: false, Message: "消息发送接口未配置API秘钥，已禁用"})
+		return
 	}
-	if p.APIKey != secret {
+	if subtle.ConstantTimeCompare([]byte(p.APIKey), []byte(secret)) != 1 {
 		write(w, http.StatusOK, response{Success: false, Message: "API秘钥验证失败"})
 		return
 	}

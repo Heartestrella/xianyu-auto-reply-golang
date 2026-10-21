@@ -1,3 +1,4 @@
+import { formatDateTime, formatPlatformDateTime, getServerDateInputValue } from '@/utils/date'
 /**
  * 商品监控 - 采集商品页面
  *
@@ -22,13 +23,7 @@ import { useUIStore } from '@/store/uiStore'
 import { getApiErrorMessage } from '@/utils/apiError'
 
 // 计算北京时间（UTC+8）的"今天"日期，避免依赖浏览器本地时区
-const getBeijingToday = (): string => {
-  const now = new Date()
-  // 本地时间转 UTC 再加 8 小时得到北京时间
-  const beijing = new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 8 * 3600 * 1000)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${beijing.getFullYear()}-${pad(beijing.getMonth() + 1)}-${pad(beijing.getDate())}`
-}
+const getBeijingToday = getServerDateInputValue
 // 采集时间默认区间：当天 00:00 ~ 23:59（datetime-local 格式 YYYY-MM-DDTHH:mm）
 const DEFAULT_CREATED_START = `${getBeijingToday()}T00:00`
 const DEFAULT_CREATED_END = `${getBeijingToday()}T23:59`
@@ -487,7 +482,7 @@ export function MonitorItems() {
                     </td>
                     <td className="max-w-[200px]"><span className="truncate block" title={item.seller_fill_fail_reason || ''}>{item.seller_fill_fail_reason || '-'}</span></td>
                     <td>{item.want_count || '-'}</td>
-                    <td className="whitespace-nowrap text-slate-500 dark:text-slate-400">{item.publish_time ? new Date(item.publish_time).toLocaleString('zh-CN') : '-'}</td>
+                    <td className="whitespace-nowrap text-slate-500 dark:text-slate-400">{item.publish_time ? formatPlatformDateTime(item.publish_time) : '-'}</td>
                     <td className="whitespace-nowrap">
                       {item.dm_status === 'failed' ? (
                         (item.dm_attempts || 0) >= 3 ? (
@@ -532,7 +527,7 @@ export function MonitorItems() {
                     <td className="whitespace-nowrap text-slate-600 dark:text-slate-300">{item.order_account_id || '-'}</td>
                     <td className="max-w-[200px]"><span className="truncate block" title={item.order_fail_reason || ''}>{item.order_fail_reason || '-'}</span></td>
                     <td className="text-center">{item.order_attempts || 0}</td>
-                    <td className="whitespace-nowrap text-slate-500 dark:text-slate-400">{item.ordered_at ? new Date(item.ordered_at).toLocaleString('zh-CN') : '-'}</td>
+                    <td className="whitespace-nowrap text-slate-500 dark:text-slate-400">{item.ordered_at ? formatDateTime(item.ordered_at) : '-'}</td>
                     <td className="whitespace-nowrap">
                       {item.has_detail ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">已获取</span>
@@ -540,9 +535,9 @@ export function MonitorItems() {
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400">未获取</span>
                       )}
                     </td>
-                    <td className="whitespace-nowrap text-slate-500 dark:text-slate-400">{item.last_seen_at ? new Date(item.last_seen_at).toLocaleString('zh-CN') : '-'}</td>
-                    <td className="whitespace-nowrap text-slate-500 dark:text-slate-400">{item.created_at ? new Date(item.created_at).toLocaleString('zh-CN') : '-'}</td>
-                    <td className="whitespace-nowrap text-slate-500 dark:text-slate-400">{item.updated_at ? new Date(item.updated_at).toLocaleString('zh-CN') : '-'}</td>
+                    <td className="whitespace-nowrap text-slate-500 dark:text-slate-400">{item.last_seen_at ? formatDateTime(item.last_seen_at) : '-'}</td>
+                    <td className="whitespace-nowrap text-slate-500 dark:text-slate-400">{item.created_at ? formatDateTime(item.created_at) : '-'}</td>
+                    <td className="whitespace-nowrap text-slate-500 dark:text-slate-400">{item.updated_at ? formatDateTime(item.updated_at) : '-'}</td>
                     <td>
                       <div className="flex items-center gap-2 whitespace-nowrap">
                         <button

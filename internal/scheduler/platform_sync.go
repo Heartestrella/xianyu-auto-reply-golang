@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
@@ -13,6 +12,7 @@ import (
 )
 
 type syncAccount struct {
+	RedFlowerAfterShipment                  bool
 	ID, OwnerID                             int64
 	AccountID, Cookie, ProxyType, ProxyHost string
 	ProxyPort                               sql.NullInt64
@@ -104,10 +104,10 @@ func (e *Engine) fetchItems(ctx context.Context, _ map[string]any) error {
 }
 
 func (e *Engine) fetchOrders(ctx context.Context, _ map[string]any) error {
-	return e.fetchOrdersByCode(ctx, "ALL")
+	return e.fetchOrdersByCode(ctx, xianyu.SoldOrderQueryAll)
 }
 func (e *Engine) fetchPendingOrders(ctx context.Context, _ map[string]any) error {
-	return e.fetchOrdersByCode(ctx, "WAIT_SELLER_SEND_GOODS")
+	return e.fetchOrdersByCode(ctx, xianyu.SoldOrderQueryPending)
 }
 func (e *Engine) fetchRefundOrders(ctx context.Context, _ map[string]any) error {
 	return e.fetchOrdersByCode(ctx, "REFUNDING")
@@ -120,7 +120,7 @@ func (e *Engine) fetchOrdersByCode(ctx context.Context, queryCode string) error 
 	failures := []string{}
 	for _, a := range accounts {
 		for page := 1; page <= 200; page++ {
-			res := xianyu.MTOPCall(ctx, xianyu.MTOPOptions{API: "mtop.taobao.idle.trade.merchant.sold.get", Version: "1.0", Cookie: a.Cookie, Proxy: syncProxy(a), Origin: "https://seller.goofish.com", Referer: "https://seller.goofish.com/", Data: map[string]any{"pageNumber": page, "rowsPerPage": 30, "orderIds": "", "queryCode": queryCode, "orderSearchParam": "{}"}, ExtraParams: map[string]string{"valueType": "string", "spm_cnt": "a21107h.42826273.0.0"}})
+			res := e.callMTOP(ctx, xianyu.MTOPOptions{API: "mtop.taobao.idle.trade.merchant.sold.get", Version: "1.0", Cookie: a.Cookie, Proxy: syncProxy(a), Origin: "https://seller.goofish.com", Referer: "https://seller.goofish.com/", Data: map[string]any{"pageNumber": page, "rowsPerPage": 30, "orderIds": "", "queryCode": queryCode, "orderSearchParam": "{}"}, ExtraParams: map[string]string{"valueType": "string", "spm_cnt": "a21107h.42826273.0.0"}})
 			if res.Cookie != "" && res.Cookie != a.Cookie {
 				a.Cookie = res.Cookie
 				_, _ = e.db.ExecContext(ctx, `UPDATE xy_accounts SET cookie=?,last_refresh_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?`, a.Cookie, a.ID)
@@ -133,7 +133,12 @@ func (e *Engine) fetchOrdersByCode(ctx context.Context, queryCode string) error 
 			items, _ := module["items"].([]any)
 			for _, raw := range items {
 				if item, ok := raw.(map[string]any); ok {
-					_ = e.upsertOrder(ctx, a, item)
+					account := xianyu.OrderSyncAccount{OwnerID: a.OwnerID, AccountID: a.AccountID, Cookie: a.Cookie, Proxy: syncProxy(a)}
+					_, syncErr := xianyu.SyncSoldOrder(ctx, e.db, e.callMTOP, &account, item, queryCode)
+					a.Cookie = account.Cookie
+					if syncErr != nil {
+						failures = append(failures, a.AccountID+": "+syncErr.Error())
+					}
 				}
 			}
 			if fmt.Sprint(module["nextPage"]) != "true" {
@@ -145,38 +150,4 @@ func (e *Engine) fetchOrdersByCode(ctx context.Context, queryCode string) error 
 		return fmt.Errorf("订单同步部分失败: %s", strings.Join(failures, "; "))
 	}
 	return nil
-}
-func (e *Engine) upsertOrder(ctx context.Context, a syncAccount, item map[string]any) error {
-	common := syncNested(item, "commonData")
-	buyer := syncNested(item, "buyerInfoVO")
-	price := syncNested(item, "priceVO")
-	right := syncNested(item, "rightVO")
-	orderNo := strings.TrimSpace(fmt.Sprint(common["orderId"]))
-	if orderNo == "" {
-		return fmt.Errorf("订单号为空")
-	}
-	statusMap := map[string]string{"待付款": "pending_payment", "待发货": "pending_ship", "已发货": "shipped", "交易成功": "completed", "交易关闭": "cancelled", "退款中": "refunding", "退款成功": "refunded", "已退款": "refunded", "退款关闭": "cancelled"}
-	status := statusMap[fmt.Sprint(common["orderStatus"])]
-	if status == "" {
-		status = "unknown"
-	}
-	if fmt.Sprint(common["inRefund"]) == "true" {
-		status = "refunding"
-	}
-	bargain := false
-	if buttons, ok := right["btnList"].([]any); ok {
-		for _, raw := range buttons {
-			if button, ok := raw.(map[string]any); ok && fmt.Sprint(button["tradeAction"]) == "SKIP_PIN" {
-				bargain = true
-			}
-		}
-	}
-	quantity, _ := strconv.Atoi(fmt.Sprint(price["buyNum"]))
-	if quantity < 1 {
-		quantity = 1
-	}
-	payload := map[string]any{"order_id": orderNo, "order_no": orderNo, "cookie_id": a.AccountID, "item_id": fmt.Sprint(common["itemId"]), "buyer_id": fmt.Sprint(buyer["buyerId"]), "buyer_fish_nick": fmt.Sprint(buyer["userNick"]), "receiver_name": fmt.Sprint(buyer["name"]), "receiver_phone": fmt.Sprint(buyer["phone"]), "receiver_address": fmt.Sprint(buyer["address"]), "amount": fmt.Sprint(price["totalPrice"]), "quantity": quantity, "status": status, "is_bargain": bargain, "is_rated": fmt.Sprint(common["sellerRateStatus"]) == "4", "placed_at": common["createTime"]}
-	b, _ := json.Marshal(payload)
-	_, err := e.db.ExecContext(ctx, `INSERT INTO xy_orders(owner_id,account_id,order_no,item_id,buyer_id,status,data) VALUES(?,?,?,?,?,?,?) ON CONFLICT(order_no) DO UPDATE SET item_id=excluded.item_id,buyer_id=excluded.buyer_id,status=excluded.status,data=json_patch(COALESCE(xy_orders.data,'{}'),excluded.data),updated_at=CURRENT_TIMESTAMP`, a.OwnerID, a.AccountID, orderNo, payload["item_id"], payload["buyer_id"], status, string(b))
-	return err
 }

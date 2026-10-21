@@ -16,6 +16,13 @@
 > 
 > 不建议直接接替原项目使用。如果您有问题，请返回 [issue](https://github.com/Heartestrella/xianyu-auto-reply-golang/issues) 反馈。
 
+## 需要在外网访问但是没有公网IP?
+推荐使用[Beefrp](https://beefrp.cn) 免费使用隧道内网穿透 支持全平台/Docker部署 价格便宜实惠
+
+<img width="1506" height="776" alt="image" src="https://github.com/user-attachments/assets/2d0df1df-0a1e-49c1-b4be-aab8fcd85068" />
+
+
+
 ## 推荐安装方式：Docker
 
 ### 1. 安装 Docker
@@ -52,6 +59,8 @@ docker compose up -d
 ```text
 http://服务器IP:9000
 ```
+
+> 端口不对的话请查找日志
 
 首次登录账号：
 
@@ -121,6 +130,10 @@ docker compose up -d
 ```
 
 Windows 用户双击 `xianyu-go.exe` 即可启动。程序会自动创建 `data/` 目录和登录密钥。运行时不要删除该目录。
+
+## 外部消息发送接口
+
+`POST /api/v1/messages/send` 需要在服务进程环境中设置 `API_SECRET_KEY`，调用方使用相同的 `api_key`。未配置或配置为空时，该接口禁用，不再使用固定默认密钥。已有自定义密钥的调用方无需调整。
 
 ## 问题反馈
 

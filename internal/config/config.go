@@ -26,7 +26,7 @@ func Load() Config {
 		Addr: env("LISTEN_ADDR", ":8089"), DataDir: data,
 		Database:  env("DATABASE_PATH", filepath.Join(data, "xianyu.db")),
 		StaticDir: env("STATIC_DIR", "frontend/dist"), JWTSecret: jwtSecret,
-		APISecretKey: env("API_SECRET_KEY", "xianyu_api_secret_2024"),
+		APISecretKey: strings.TrimSpace(env("API_SECRET_KEY", "")),
 		AccessTTL:    minutes("ACCESS_TOKEN_EXPIRE_MINUTES", 1440), RefreshTTL: minutes("REFRESH_TOKEN_EXPIRE_MINUTES", 10080),
 	}
 }

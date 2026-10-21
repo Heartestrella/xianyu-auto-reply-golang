@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/date'
 /**
  * 个人黑名单Tab页
  */
@@ -311,10 +312,10 @@ export function PersonalBlacklist({ onRefreshRef }: Props) {
                     {item.reason || '-'}
                   </td>
                   <td className="px-3 py-2 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">
-                    {item.created_at ? new Date(item.created_at).toLocaleString() : '-'}
+                    {item.created_at ? formatDateTime(item.created_at) : '-'}
                   </td>
                   <td className="px-3 py-2 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">
-                    {item.updated_at ? new Date(item.updated_at).toLocaleString() : '-'}
+                    {item.updated_at ? formatDateTime(item.updated_at) : '-'}
                   </td>
                   <td className="px-3 py-2">
                     <span className={`inline-flex px-2 py-0.5 text-xs rounded-full ${

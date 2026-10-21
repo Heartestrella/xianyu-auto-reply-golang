@@ -46,6 +46,7 @@ export interface Account {
   cookie: string
   enabled: boolean
   online?: boolean  // 在线状态：是否已建立真实 WebSocket 连接（口径同仪表盘“在线账号”）
+  connection_error?: string
   use_ai_reply: boolean
   use_default_reply: boolean
   auto_confirm: boolean
@@ -56,6 +57,7 @@ export interface Account {
   send_before_confirm?: boolean
   only_send_card?: boolean
   auto_red_flower?: boolean
+  red_flower_after_shipment?: boolean
   ai_reply_block_ordered_users?: boolean
   agree_deliver_enabled?: boolean
   delivery_disabled?: boolean

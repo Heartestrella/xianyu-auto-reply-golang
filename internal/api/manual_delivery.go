@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+
+	"github.com/zhinianboke/xianyu-auto-go/internal/xianyu"
 )
 
 func (s *Server) orderManualDelivery(w http.ResponseWriter, r *http.Request) {
@@ -35,33 +37,16 @@ func (s *Server) orderManualDelivery(w http.ResponseWriter, r *http.Request) {
 		write(w, 200, response{Success: false, Message: "订单缺少商品或买家信息"})
 		return
 	}
-	chatID := firstText(raw["chat_id"], raw["chatId"])
 	if s.online == nil || !s.online(o.AccountID) || s.chatSend == nil {
 		write(w, 200, response{Success: false, Message: "账号IM未连接，请先在在线聊天中启动账号"})
 		return
 	}
-	if chatID == "" {
-		// Platform order APIs do not return a chat ID. Recover it from a message
-		// already seen for this buyer, or create a conversation before shipping.
-		_ = s.db.QueryRowContext(r.Context(), `SELECT COALESCE(json_extract(data,'$.ChatID'),json_extract(data,'$.cid'),json_extract(data,'$.chat_id'),'') FROM event_logs WHERE owner_id=? AND account_id=? AND kind IN ('incoming_message','outgoing_message') AND (COALESCE(json_extract(data,'$.SenderID'),json_extract(data,'$.senderId'),json_extract(data,'$.toUserId'),'')=?) AND COALESCE(json_extract(data,'$.ChatID'),json_extract(data,'$.cid'),json_extract(data,'$.chat_id'),'')<>'' ORDER BY id DESC LIMIT 1`, o.OwnerID, o.AccountID, o.BuyerID).Scan(&chatID)
-	}
-	if chatID == "" && s.chatCreate != nil {
-		created, err := s.chatCreate(r.Context(), o.AccountID, o.BuyerID, o.ItemID)
-		if err != nil {
-			write(w, 200, response{Success: false, Message: "创建买家会话失败: " + err.Error()})
-			return
-		}
-		chatID = strings.TrimSpace(created)
-	}
-	if chatID == "" {
-		write(w, 200, response{Success: false, Message: "订单没有会话ID，且无法创建买家会话"})
+	chatID, err := xianyu.EnsureOrderChat(r.Context(), s.db, o.OwnerID, o.AccountID, o.OrderNo, s.chatCreate)
+	if err != nil {
+		write(w, 200, response{Success: false, Message: err.Error()})
 		return
 	}
-	if firstText(raw["chat_id"], raw["chatId"]) == "" {
-		raw["chat_id"] = chatID
-		encoded, _ := json.Marshal(raw)
-		_, _ = s.db.ExecContext(r.Context(), `UPDATE xy_orders SET data=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`, string(encoded), o.ID)
-	}
+	raw["chat_id"], raw["chatId"] = chatID, chatID
 	po := pickupOrder{ID: o.ID, OwnerID: o.OwnerID, OrderNo: o.OrderNo, AccountID: o.AccountID, ItemID: o.ItemID, BuyerID: o.BuyerID, Status: o.Status, Data: o.Data}
 	card, cardErr := s.pickupCardContent(r, po)
 	if cardErr != "" {

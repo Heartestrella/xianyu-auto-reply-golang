@@ -53,6 +53,7 @@ type Server struct {
 	agreePickupMu   sync.Mutex
 	passwordMu      sync.Mutex
 	passwordLogins  map[string]*passwordLoginSession
+	orderMTOPCall   func(context.Context, xianyu.MTOPOptions) xianyu.MTOPResult
 }
 type response struct {
 	Success bool   `json:"success"`
@@ -283,6 +284,7 @@ func (s *Server) accountRoutes(r chi.Router) {
 	r.Put("/{id}/send-before-confirm", s.accountField("send_before_confirm", "send_before_confirm"))
 	r.Put("/{id}/only-send-card", s.accountField("only_send_card", "only_send_card"))
 	r.Put("/{id}/auto-red-flower", s.accountField("auto_red_flower", "auto_red_flower"))
+	r.Put("/{id}/red-flower-after-shipment", s.accountField("red_flower_after_shipment", "red_flower_after_shipment"))
 	r.Put("/{id}/ai-reply-block-ordered-users", s.accountField("ai_reply_block_ordered_users", "ai_reply_block_ordered_users"))
 	r.Put("/{id}/delivery-disabled", s.accountDeliveryDisabled)
 	r.Put("/{id}/login-info", s.accountLoginInfo)
@@ -576,7 +578,12 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 }
 func current(r *http.Request) User { return r.Context().Value(userKey{}).(User) }
 func write(w http.ResponseWriter, status int, v any) {
+	now := time.Now()
+	_, offset := now.Zone()
+	w.Header().Set("X-Server-Time", now.Format(time.RFC3339))
+	w.Header().Set("X-Server-UTC-Offset", strconv.Itoa(offset/60))
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "private, no-store")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
 }
@@ -1107,7 +1114,7 @@ func (s *Server) accountList(w http.ResponseWriter, r *http.Request) {
 			for candidateRows.Next() {
 				var id string
 				_ = candidateRows.Scan(&id)
-				if (s.online != nil && s.online(id)) || s.ws.Online(id) {
+				if s.online != nil && s.online(id) {
 					onlineIDs = append(onlineIDs, id)
 				}
 			}
@@ -1135,10 +1142,11 @@ func (s *Server) accountList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pageArgs := append(append([]any{}, args...), n, (p-1)*n)
-	rows, e := s.db.QueryContext(r.Context(), `SELECT a.id,a.account_id,a.cookie,a.status,a.remark,a.auto_confirm,a.show_browser,a.pause_duration,a.message_expire_time,a.reply_delay_seconds,a.scheduled_redelivery,a.scheduled_rate,a.auto_polish,a.confirm_before_send,a.send_before_confirm,a.only_send_card,a.auto_red_flower,a.ai_reply_block_ordered_users,a.delivery_disabled,a.delivery_disabled_reason,a.auto_close_order,a.delivery_only_card_after_close,a.delivery_disabled_excluded_items,a.disable_reason,a.created_at,a.updated_at,a.owner_id,COALESCE(owner.username,''),COALESCE(a.username,''),COALESCE(a.login_password,''),COALESCE(a.metadata,'{}'),
+	rows, e := s.db.QueryContext(r.Context(), `SELECT a.id,a.account_id,a.cookie,a.status,a.remark,a.auto_confirm,a.show_browser,a.pause_duration,a.message_expire_time,a.reply_delay_seconds,a.scheduled_redelivery,a.scheduled_rate,a.auto_polish,a.confirm_before_send,a.send_before_confirm,a.only_send_card,a.auto_red_flower,a.red_flower_after_shipment,a.ai_reply_block_ordered_users,a.delivery_disabled,a.delivery_disabled_reason,a.auto_close_order,a.delivery_only_card_after_close,a.delivery_disabled_excluded_items,a.disable_reason,a.created_at,a.updated_at,a.owner_id,COALESCE(owner.username,''),COALESCE(a.username,''),COALESCE(a.login_password,''),COALESCE(a.metadata,'{}'),
 		(SELECT count(*) FROM resource_records f WHERE f.owner_id=a.owner_id AND f.kind='message_filter' AND COALESCE(f.account_id,'')=a.account_id),
 		(SELECT count(*) FROM xy_keyword_rules k WHERE k.owner_id=a.owner_id AND k.account_id=a.account_id),
-		(SELECT count(*) FROM event_logs l WHERE l.owner_id=a.owner_id AND l.account_id=a.account_id AND l.kind IN ('auto_reply','ai_reply') AND upper(l.level)='INFO' AND date(l.created_at,'localtime')=date('now','localtime'))`+from+` ORDER BY CASE WHEN a.status IN ('inactive','disabled','suspended','deleted') THEN 1 ELSE 0 END,a.created_at DESC LIMIT ? OFFSET ?`, pageArgs...)
+		(SELECT count(*) FROM event_logs l WHERE l.owner_id=a.owner_id AND l.account_id=a.account_id AND l.kind IN ('auto_reply','ai_reply') AND upper(l.level)='INFO' AND date(l.created_at,'localtime')=date('now','localtime')),
+		COALESCE((SELECT CASE WHEN upper(l.level)='ERROR' THEN l.message ELSE '' END FROM event_logs l WHERE l.owner_id=a.owner_id AND l.account_id=a.account_id AND l.kind='account_login' ORDER BY l.id DESC LIMIT 1),'')`+from+` ORDER BY CASE WHEN a.status IN ('inactive','disabled','suspended','deleted') THEN 1 ELSE 0 END,a.created_at DESC LIMIT ? OFFSET ?`, pageArgs...)
 	if e != nil {
 		fail(w, 500, e.Error())
 		return
@@ -1149,18 +1157,18 @@ func (s *Server) accountList(w http.ResponseWriter, r *http.Request) {
 		var id, ownerID int64
 		var aid, cookie, status, created, updated string
 		var remark, ddr, dr sql.NullString
-		var ownerUsername, username, loginPassword, metadata string
+		var ownerUsername, username, loginPassword, metadata, connectionError string
 		var filterCount, keywordCount, todayReplyCount int
-		var ac, sb, sr, rate, polish, cbs, sbc, osc, flower, aib, dd, aco, doc bool
+		var ac, sb, sr, rate, polish, cbs, sbc, osc, flower, flowerAfterShipment, aib, dd, aco, doc bool
 		var pause, expire, delay int
 		var excluded string
-		e = rows.Scan(&id, &aid, &cookie, &status, &remark, &ac, &sb, &pause, &expire, &delay, &sr, &rate, &polish, &cbs, &sbc, &osc, &flower, &aib, &dd, &ddr, &aco, &doc, &excluded, &dr, &created, &updated, &ownerID, &ownerUsername, &username, &loginPassword, &metadata, &filterCount, &keywordCount, &todayReplyCount)
+		e = rows.Scan(&id, &aid, &cookie, &status, &remark, &ac, &sb, &pause, &expire, &delay, &sr, &rate, &polish, &cbs, &sbc, &osc, &flower, &flowerAfterShipment, &aib, &dd, &ddr, &aco, &doc, &excluded, &dr, &created, &updated, &ownerID, &ownerUsername, &username, &loginPassword, &metadata, &filterCount, &keywordCount, &todayReplyCount, &connectionError)
 		if e != nil {
 			continue
 		}
-		online := s.ws.Online(aid)
-		if s.online != nil {
-			online = online || s.online(aid)
+		online := s.online != nil && s.online(aid)
+		if online {
+			connectionError = ""
 		}
 		meta := map[string]any{}
 		_ = json.Unmarshal([]byte(metadata), &meta)
@@ -1171,7 +1179,7 @@ func (s *Server) accountList(w http.ResponseWriter, r *http.Request) {
 				aiEnabled, _ = ai["enabled"].(bool)
 			}
 		}
-		list = append(list, map[string]any{"pk": id, "id": aid, "value": cookie, "enabled": accountStatusEnabled(status), "online": online, "remark": remark.String, "auto_confirm": ac, "show_browser": sb, "pause_duration": pause, "message_expire_time": expire, "reply_delay_seconds": delay, "scheduled_redelivery": sr, "scheduled_rate": rate, "auto_polish": polish, "confirm_before_send": cbs, "send_before_confirm": sbc, "only_send_card": osc, "auto_red_flower": flower, "ai_reply_block_ordered_users": aib, "delivery_disabled": dd, "delivery_disabled_reason": ddr.String, "auto_close_order": aco, "delivery_only_card_after_close": doc, "delivery_disabled_excluded_item_ids": smart(excluded), "disable_reason": dr.String, "username": username, "login_password": loginPassword, "ai_enabled": aiEnabled, "filter_count": filterCount, "keyword_count": keywordCount, "today_reply_count": todayReplyCount, "owner_id": ownerID, "owner_username": ownerUsername, "created_at": created, "updated_at": updated})
+		list = append(list, map[string]any{"pk": id, "id": aid, "value": cookie, "enabled": accountStatusEnabled(status), "online": online, "connection_error": connectionError, "remark": remark.String, "auto_confirm": ac, "show_browser": sb, "pause_duration": pause, "message_expire_time": expire, "reply_delay_seconds": delay, "scheduled_redelivery": sr, "scheduled_rate": rate, "auto_polish": polish, "confirm_before_send": cbs, "send_before_confirm": sbc, "only_send_card": osc, "auto_red_flower": flower, "red_flower_after_shipment": flowerAfterShipment, "ai_reply_block_ordered_users": aib, "delivery_disabled": dd, "delivery_disabled_reason": ddr.String, "auto_close_order": aco, "delivery_only_card_after_close": doc, "delivery_disabled_excluded_item_ids": smart(excluded), "disable_reason": dr.String, "username": username, "login_password": loginPassword, "ai_enabled": aiEnabled, "filter_count": filterCount, "keyword_count": keywordCount, "today_reply_count": todayReplyCount, "owner_id": ownerID, "owner_username": ownerUsername, "created_at": created, "updated_at": updated})
 	}
 	write(w, 200, map[string]any{"success": true, "data": list, "total": total, "page": p, "page_size": n, "total_pages": pages(total, n)})
 }
@@ -1231,7 +1239,22 @@ func (s *Server) accountField(column, key string) http.HandlerFunc {
 			fail(w, 404, "账号不存在或无权限访问")
 			return
 		}
-		res, e := s.db.ExecContext(r.Context(), `UPDATE xy_accounts SET `+column+`=?,updated_at=CURRENT_TIMESTAMP WHERE owner_id=? AND account_id=?`, v, ownerID, accountID)
+		assignment := column + `=?`
+		if column == "auto_red_flower" || column == "red_flower_after_shipment" {
+			flag, valid := v.(bool)
+			if !valid {
+				fail(w, 400, "求小红花开关必须为布尔值")
+				return
+			}
+			if column == "auto_red_flower" {
+				assignment += `,red_flower_after_shipment=0`
+			} else if flag {
+				assignment += `,auto_red_flower=1`
+			} else {
+				assignment += `,auto_red_flower=0`
+			}
+		}
+		res, e := s.db.ExecContext(r.Context(), `UPDATE xy_accounts SET `+assignment+`,updated_at=CURRENT_TIMESTAMP WHERE owner_id=? AND account_id=?`, v, ownerID, accountID)
 		affected(w, res, e, "设置更新成功")
 	}
 }
@@ -1278,8 +1301,14 @@ func (s *Server) accountDelete(w http.ResponseWriter, r *http.Request) {
 		fail(w, 404, "账号不存在或无权限访问")
 		return
 	}
-	res, e := s.db.ExecContext(r.Context(), `DELETE FROM xy_accounts WHERE owner_id=? AND account_id=?`, ownerID, accountID)
-	affected(w, res, e, "账号删除成功")
+	if e := s.deleteAccountData(r.Context(), ownerID, accountID); e != nil {
+		fail(w, 500, "账号删除失败")
+		return
+	}
+	if s.accountRestart != nil {
+		s.accountRestart(accountID)
+	}
+	ok(w, "账号删除成功", nil)
 }
 func (s *Server) accountLoginInfo(w http.ResponseWriter, r *http.Request) {
 	u := current(r)
@@ -1533,7 +1562,7 @@ func (s *Server) itemQuery(w http.ResponseWriter, r *http.Request, account strin
 		q += ` ORDER BY id DESC LIMIT ? OFFSET ?`
 		qa = append(qa, n, (p-1)*n)
 	}
-	rows, e := s.db.QueryContext(r.Context(), `SELECT account_id,item_id,COALESCE(title,''),COALESCE(description,''),COALESCE(price,''),COALESCE(status,''),COALESCE(data,'{}'),created_at,updated_at`+q, qa...)
+	rows, e := s.db.QueryContext(r.Context(), `SELECT id,account_id,item_id,COALESCE(title,''),COALESCE(description,''),COALESCE(price,''),COALESCE(status,''),COALESCE(data,'{}'),created_at,updated_at`+q, qa...)
 	if e != nil {
 		fail(w, 500, e.Error())
 		return
@@ -1541,13 +1570,17 @@ func (s *Server) itemQuery(w http.ResponseWriter, r *http.Request, account strin
 	defer rows.Close()
 	list := []map[string]any{}
 	for rows.Next() {
+		var recordID int64
 		var ac, id, title, desc, price, status, data, created, updated string
-		if e = rows.Scan(&ac, &id, &title, &desc, &price, &status, &data, &created, &updated); e != nil {
+		if e = rows.Scan(&recordID, &ac, &id, &title, &desc, &price, &status, &data, &created, &updated); e != nil {
 			fail(w, 500, e.Error())
 			return
 		}
-		m := map[string]any{"cookie_id": ac, "item_id": id, "title": title, "description": desc, "price": price, "status": status, "created_at": created, "updated_at": updated}
+		m := map[string]any{}
 		mergeJSON(m, data)
+		m["id"], m["cookie_id"], m["item_id"] = fmt.Sprint(recordID), ac, id
+		m["title"], m["description"], m["price"], m["status"] = title, desc, price, status
+		m["created_at"], m["updated_at"] = created, updated
 		defaultReply, hasDefaultReply := m["default_reply"].(map[string]any)
 		m["has_default_reply"] = hasDefaultReply && len(defaultReply) > 0
 		m["default_reply_enabled"] = hasDefaultReply && defaultReply["enabled"] == true
@@ -1812,6 +1845,7 @@ func mergeJSON(m map[string]any, s string) {
 }
 
 func (s *Server) orders(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "private, no-store")
 	u := current(r)
 	p, n := page(r)
 	q := ` FROM xy_orders o LEFT JOIN xy_catalog_items ci ON ci.account_id=o.account_id AND ci.item_id=o.item_id WHERE 1=1`
@@ -1828,8 +1862,17 @@ func (s *Server) orders(w http.ResponseWriter, r *http.Request) {
 		q += ` AND o.status=?`
 		a = append(a, v)
 	}
+	if v := strings.TrimSpace(r.URL.Query().Get("search")); v != "" {
+		// 搜索条件同时用于总数与分页查询，并保留账号、状态及用户权限限制。
+		keyword := "%" + strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(v) + "%"
+		q += ` AND (o.order_no LIKE ? ESCAPE '\' OR o.item_id LIKE ? ESCAPE '\' OR o.buyer_id LIKE ? ESCAPE '\')`
+		a = append(a, keyword, keyword, keyword)
+	}
 	var total int
-	_ = s.db.QueryRowContext(r.Context(), `SELECT count(*)`+q, a...).Scan(&total)
+	if e := s.db.QueryRowContext(r.Context(), `SELECT count(*)`+q, a...).Scan(&total); e != nil {
+		fail(w, 500, e.Error())
+		return
+	}
 	a = append(a, n, (p-1)*n)
 	rows, e := s.db.QueryContext(r.Context(), `SELECT o.id,o.account_id,o.order_no,o.item_id,o.buyer_id,o.status,COALESCE(o.delivery_method,''),o.data,o.created_at,o.updated_at,COALESCE(json_extract(ci.data,'$.title'),json_extract(ci.data,'$.item_title'),json_extract(ci.data,'$.name'),'')`+q+` ORDER BY o.id DESC LIMIT ? OFFSET ?`, a...)
 	if e != nil {
@@ -1997,9 +2040,15 @@ func (s *Server) cardUpdate(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "请求格式错误")
 		return
 	}
-	b, _ := json.Marshal(p)
-	res, e := s.db.ExecContext(r.Context(), `UPDATE cards SET name=COALESCE(?,name),type=COALESCE(?,type),data=?,updated_at=CURRENT_TIMESTAMP WHERE user_id=? AND id=?`, p["name"], p["type"], string(b), u.ID, chi.URLParam(r, "id"))
-	affected(w, res, e, "卡券更新成功")
+	if err := s.updateCardData(r.Context(), u.ID, chi.URLParam(r, "id"), p); err != nil {
+		if err == sql.ErrNoRows {
+			fail(w, 404, "卡券不存在")
+		} else {
+			fail(w, 500, "卡券更新失败")
+		}
+		return
+	}
+	ok(w, "卡券更新成功", nil)
 }
 func (s *Server) cardDelete(w http.ResponseWriter, r *http.Request) {
 	u := current(r)

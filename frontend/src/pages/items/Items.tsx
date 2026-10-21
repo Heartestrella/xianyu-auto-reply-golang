@@ -1,4 +1,5 @@
-﻿import { useEffect, useState, useRef } from 'react'
+import { formatDateTime } from '@/utils/date'
+import { useEffect, useState, useRef } from 'react'
 import { CheckSquare, Download, Edit2, ExternalLink, Loader2, Package, PackageX, RefreshCw, Search, Square, Trash2, X, Settings, Plus, MessageSquare, Bot, ChevronLeft, ChevronRight, ImagePlus, Unlink, Tag } from 'lucide-react'
 import { batchDeleteItems, batchDeleteXianyuItems, batchOfflineItems, deleteItem, fetchAllItemsFromAccessibleAccounts, fetchAllItemsFromAccount, getItemsPaginated, updateItem, updateItemMultiQuantityDelivery, updateItemMultiSpec, updateItemPrice, getItemDefaultReply, saveItemDefaultReply, deleteItemDefaultReply, batchSaveItemDefaultReply, batchDeleteItemDefaultReply, getItemAiPrompt, saveItemAiPrompt, batchDeleteItemAiPrompt, batchSaveItemAiPrompt, uploadItemDefaultReplyImage, uploadBatchDefaultReplyImage, type ItemFilterParams } from '@/api/items'
 import { getAccountDetails } from '@/api/accounts'
@@ -143,6 +144,7 @@ export function Items() {
   const [deleting, setDeleting] = useState(false)
   // const hasSearchEffectInitializedRef = useRef(false)  // 已改为手动查询，不再需要
   const skipNextSearchEffectRef = useRef(false)
+  const itemsRequestRef = useRef(0)
 
   const loadItems = async (
     page: number = pagination.page,
@@ -153,6 +155,7 @@ export function Items() {
     if (!_hasHydrated || !isAuthenticated || !token) {
       return
     }
+    const requestID = ++itemsRequestRef.current
     try {
       setItemsLoading(true)
       const trimmedKeyword = currentKeyword.trim()
@@ -160,6 +163,7 @@ export function Items() {
         ...currentFilters,
         keyword: trimmedKeyword || null,
       })
+      if (requestID !== itemsRequestRef.current) return
       if (result.success) {
         const nextItems = result.data || []
         const visibleIds = new Set(nextItems.map((item) => item.id))
@@ -175,10 +179,13 @@ export function Items() {
         })
       }
     } catch {
+      if (requestID !== itemsRequestRef.current) return
       addToast({ type: 'error', message: '加载商品列表失败' })
     } finally {
-      setItemsLoading(false)
-      setLoading(false)
+      if (requestID === itemsRequestRef.current) {
+        setItemsLoading(false)
+        setLoading(false)
+      }
     }
   }
 
@@ -1680,10 +1687,10 @@ export function Items() {
                       </button>
                     </td>
                     <td className="text-gray-500 text-xs">
-                      {item.created_at ? new Date(item.created_at).toLocaleString() : '-'}
+                      {item.created_at ? formatDateTime(item.created_at) : '-'}
                     </td>
                     <td className="text-gray-500 text-xs">
-                      {item.updated_at ? new Date(item.updated_at).toLocaleString() : '-'}
+                      {item.updated_at ? formatDateTime(item.updated_at) : '-'}
                     </td>
                     <td className="sticky right-0 bg-white dark:bg-slate-900">
                       <div className="flex gap-1">

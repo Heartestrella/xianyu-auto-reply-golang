@@ -1,3 +1,4 @@
+import { formatDateTime, getServerDateInputValue } from '@/utils/date'
 /**
  * 数据库备份日志页面
  *
@@ -63,7 +64,7 @@ export function DbBackupLogs() {
   const [logs, setLogs] = useState<DbBackupLog[]>([])
 
   // 时间筛选 - 默认当天
-  const today = new Date().toISOString().split('T')[0]
+  const today = getServerDateInputValue()
   const [startDate, setStartDate] = useState(today)
   const [endDate, setEndDate] = useState(today)
 
@@ -303,7 +304,7 @@ export function DbBackupLogs() {
                       </span>
                     </td>
                     <td className="text-slate-500 dark:text-slate-400 text-sm whitespace-nowrap">
-                      {new Date(log.created_at).toLocaleString()}
+                      {formatDateTime(log.created_at)}
                     </td>
                     <td className="whitespace-nowrap">
                       {log.downloadable ? (
