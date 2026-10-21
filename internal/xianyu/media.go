@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -15,7 +16,7 @@ import (
 	"time"
 )
 
-func UploadChatImage(ctx context.Context, cookie, proxy, filename string, data []byte) (string, error) {
+func UploadChatImage(ctx context.Context, cookie, accountProxy, filename string, data []byte) (string, error) {
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 	part, err := writer.CreateFormFile("file", "img_"+fmt.Sprint(time.Now().UnixNano())+filepath.Ext(filename))
@@ -36,9 +37,9 @@ func UploadChatImage(ctx context.Context, cookie, proxy, filename string, data [
 	req.Header.Set("X-Requested-With", "XMLHttpRequest")
 	req.Header.Set("Accept", "application/json, text/javascript, */*; q=0.01")
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-	transport := &http.Transport{Proxy: http.ProxyFromEnvironment}
-	if proxy != "" {
-		if parsed, e := url.Parse(proxy); e == nil {
+	transport := proxy.Transport()
+	if p := proxy.EffectiveURL(accountProxy); p != "" {
+		if parsed, e := url.Parse(p); e == nil {
 			transport.Proxy = http.ProxyURL(parsed)
 		}
 	}

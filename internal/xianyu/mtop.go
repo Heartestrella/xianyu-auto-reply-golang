@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 	"io"
 	"net/http"
 	"net/url"
@@ -76,11 +77,13 @@ func MTOPCall(ctx context.Context, opt MTOPOptions) MTOPResult {
 		for k, v := range opt.ExtraHeaders {
 			req.Header.Set(k, v)
 		}
-		tr := &http.Transport{Proxy: http.ProxyFromEnvironment}
-		if opt.Proxy != "" {
-			if p, e := url.Parse(opt.Proxy); e == nil {
-				tr.Proxy = http.ProxyURL(p)
+		tr := proxy.Transport()
+		if p := proxy.EffectiveURL(opt.Proxy); p != "" {
+			parsed, parseErr := url.Parse(p)
+			if parseErr != nil {
+				return MTOPResult{Error: "代理地址无效: " + parseErr.Error(), Cookie: cookie}
 			}
+			tr.Proxy = http.ProxyURL(parsed)
 		}
 		resp, e := (&http.Client{Timeout: 30 * time.Second, Transport: tr}).Do(req)
 		if e != nil {

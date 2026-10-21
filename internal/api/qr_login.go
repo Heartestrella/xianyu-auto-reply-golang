@@ -23,6 +23,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	qrcode "github.com/skip2/go-qrcode"
+	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 )
 
 const qrHost = "https://passport.goofish.com"
@@ -69,7 +70,7 @@ func qrHeaders(r *http.Request) {
 
 func (m *qrLoginManager) generate(ownerID int64) (*qrLoginSession, error) {
 	jar, _ := cookiejar.New(nil)
-	s := &qrLoginSession{ID: uuid.NewString(), OwnerID: ownerID, Status: "waiting", CreatedAt: time.Now(), ExpiresAt: time.Now().Add(5 * time.Minute), client: &http.Client{Timeout: 60 * time.Second, Jar: jar}, cookies: map[string]string{}}
+	s := &qrLoginSession{ID: uuid.NewString(), OwnerID: ownerID, Status: "waiting", CreatedAt: time.Now(), ExpiresAt: time.Now().Add(5 * time.Minute), client: &http.Client{Timeout: 60 * time.Second, Jar: jar, Transport: proxy.Transport()}, cookies: map[string]string{}}
 	if err := m.bootstrap(s); err != nil {
 		return nil, err
 	}

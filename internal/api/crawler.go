@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 	"github.com/zhinianboke/xianyu-auto-go/internal/xianyu"
 )
 
@@ -253,6 +254,9 @@ func (s *Server) crawlerJobRunOnce(w http.ResponseWriter, r *http.Request) {
 }
 
 func crawlerProxy(proxyType, host string, port sql.NullInt64, user, pass sql.NullString) string {
+	if proxy.Enabled() {
+		return proxy.URL()
+	}
 	if host == "" || !port.Valid || proxyType == "" || proxyType == "none" {
 		return ""
 	}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 	"io"
 	"net/http"
 	"net/url"
@@ -72,7 +73,7 @@ func testRemoteInterface(parent context.Context, p remoteTestRequest, kind strin
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-API-Key", secret)
-	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
+	resp, err := proxy.Client(30 * time.Second).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("连接远程接口失败: %w", err)
 	}

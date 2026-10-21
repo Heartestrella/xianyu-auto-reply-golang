@@ -299,6 +299,7 @@ export const testEmailSend = async (email: string): Promise<ApiResponse> => {
 export interface ProxySettingsPayload {
   'proxy.api_url': string
   'proxy.enabled': boolean
+  'proxy.url': string
 }
 
 // 从全局 settings 中提取代理设置，兼容字符串/布尔回读
@@ -310,6 +311,7 @@ export const normalizeProxySettings = (settings?: Partial<SystemSettings> | null
   return {
     'proxy.api_url': typeof apiUrl === 'string' ? apiUrl : '',
     'proxy.enabled': enabled === true || enabled === 'true',
+    'proxy.url': typeof settings?.['proxy.url'] === 'string' ? settings['proxy.url'] : '',
   }
 }
 
@@ -327,11 +329,13 @@ export const updateProxySettings = async (settings?: Partial<SystemSettings> | n
       `${SYSTEM_SETTINGS_PREFIX}/proxy.enabled`,
       { value: normalized['proxy.enabled'] ? 'true' : 'false' },
     )
+  const putGlobalUrl = (): Promise<ApiResponse> => put<ApiResponse>(`${SYSTEM_SETTINGS_PREFIX}/proxy.url`, { value: normalized['proxy.url'] })
+  const putGlobalEnabled = (): Promise<ApiResponse> => put<ApiResponse>(`${SYSTEM_SETTINGS_PREFIX}/proxy.enabled`, { value: normalized['proxy.enabled'] ? 'true' : 'false' })
 
   // 按目标状态编排 PUT 顺序，确保后端跨键校验总能通过：
   // - 目标启用：先写 URL（前置条件）再开启开关
   // - 目标禁用：先关闭开关再清空/保留 URL
-  const operations = normalized['proxy.enabled'] ? [putUrl, putEnabled] : [putEnabled, putUrl]
+  const operations = normalized['proxy.enabled'] ? [putUrl, putGlobalUrl, putEnabled, putGlobalEnabled] : [putEnabled, putGlobalEnabled, putUrl, putGlobalUrl]
 
   for (const op of operations) {
     try {
@@ -346,6 +350,9 @@ export const updateProxySettings = async (settings?: Partial<SystemSettings> | n
 
   return { success: true, message: '代理设置已保存' }
 }
+
+export const testProxy = (enabled: boolean, url: string): Promise<ApiResponse<{ ip: string }>> =>
+  post<ApiResponse<{ ip: string }>>(`${SYSTEM_SETTINGS_PREFIX}/test-proxy`, { enabled, url })
 
 // ========== 分销设置（独立保存） ==========
 

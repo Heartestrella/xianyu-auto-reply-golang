@@ -321,6 +321,7 @@ export interface SystemSettings {
   // 代理设置
   'proxy.api_url'?: string
   'proxy.enabled'?: boolean
+  'proxy.url'?: string
   // 用户到期/续期设置
   'user.renew_month_price'?: string
   'user.register_default_days'?: string

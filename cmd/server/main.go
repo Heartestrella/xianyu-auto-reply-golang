@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/zhinianboke/xianyu-auto-go/internal/auth"
 	"github.com/zhinianboke/xianyu-auto-go/internal/config"
 	"github.com/zhinianboke/xianyu-auto-go/internal/database"
+	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 	"github.com/zhinianboke/xianyu-auto-go/internal/scheduler"
 	"github.com/zhinianboke/xianyu-auto-go/internal/xianyu"
 )
@@ -29,6 +31,16 @@ func main() {
 		os.Exit(1)
 	}
 	defer db.Close()
+	var proxyEnabled, proxyURL string
+	_ = db.QueryRow(`SELECT COALESCE(value,'') FROM system_settings WHERE key='proxy.enabled'`).Scan(&proxyEnabled)
+	_ = db.QueryRow(`SELECT COALESCE(value,'') FROM system_settings WHERE key='proxy.url'`).Scan(&proxyURL)
+	if err := proxy.Apply(strings.EqualFold(strings.TrimSpace(proxyEnabled), "true"), proxyURL); err != nil {
+		log.Warn("invalid global proxy setting", "error", err)
+	}
+	// Make every HTTP client that relies on Go's default transport use the same
+	// configured proxy; there is no environment fallback once a proxy is enabled.
+	http.DefaultTransport = proxy.Transport()
+	http.DefaultClient.Transport = http.DefaultTransport
 	var n int
 	_ = db.QueryRow(`SELECT count(*) FROM xy_users`).Scan(&n)
 	if n == 0 {

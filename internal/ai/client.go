@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 	"io"
 	"net/http"
 	"net/url"
@@ -20,7 +21,7 @@ type Config struct {
 
 type Client struct{ HTTP *http.Client }
 
-func New() *Client { return &Client{HTTP: &http.Client{Timeout: 45 * time.Second}} }
+func New() *Client { return &Client{HTTP: proxy.Client(45 * time.Second)} }
 
 func (c *Client) Generate(ctx context.Context, cfg Config, userMessage string) (string, error) {
 	if cfg.Timeout <= 0 {
@@ -216,7 +217,7 @@ func (c *Client) requestJSON(ctx context.Context, method, endpoint, bearer strin
 	}
 	client := c.HTTP
 	if client == nil {
-		client = &http.Client{Timeout: 45 * time.Second}
+		client = proxy.Client(45 * time.Second)
 	}
 	resp, err := client.Do(req)
 	if err != nil {

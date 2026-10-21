@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Globe, Save, Settings as SettingsIcon } from 'lucide-react'
+import { Globe, Loader2, Network, Save, Settings as SettingsIcon } from 'lucide-react'
 import { Navigate } from 'react-router-dom'
-import { getSystemSettings, updateSystemSettings } from '@/api/settings'
+import { getSystemSettings, testProxy, updateProxySettings, updateSystemSettings } from '@/api/settings'
 import { ButtonLoading, PageLoading } from '@/components/common/Loading'
 import { useAuthStore } from '@/store/authStore'
 import { useUIStore } from '@/store/uiStore'
@@ -17,6 +17,7 @@ export function Settings() {
   const [settings, setSettings] = useState<SystemSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [testingProxy, setTestingProxy] = useState(false)
 
   useEffect(() => {
     if (!_hasHydrated || !isAuthenticated || !token || !user?.is_admin) return
@@ -40,15 +41,26 @@ export function Settings() {
       const result = await updateSystemSettings({
         'log.retention_days': String(days),
         'account.face_verify_timeout_disable': Boolean(settings['account.face_verify_timeout_disable'] ?? true),
-        'proxy.enabled': Boolean(settings['proxy.enabled'] ?? false),
         'proxy.api_url': String(settings['proxy.api_url'] || '').trim(),
       })
+      const proxyResult = await updateProxySettings({ 'proxy.enabled': Boolean(settings['proxy.enabled'] ?? false), 'proxy.url': String(settings['proxy.url'] || '').trim() })
+      if (!result.success || !proxyResult.success) throw new Error(result.message || proxyResult.message || '保存失败')
       addToast({ type: result.success ? 'success' : 'error', message: result.message || (result.success ? '设置已保存' : '保存失败') })
     } catch {
       addToast({ type: 'error', message: '保存失败' })
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleTestProxy = async () => {
+    setTestingProxy(true)
+    try {
+      const result = await testProxy(Boolean(settings['proxy.enabled']), String(settings['proxy.url'] || '').trim())
+      addToast({ type: result.success ? 'success' : 'error', message: result.success ? `代理连接正常，出口 IP：${result.data?.ip || '-'}` : (result.message || '代理连接失败') })
+    } catch (error) {
+      addToast({ type: 'error', message: error instanceof Error ? error.message : '代理连接失败' })
+    } finally { setTestingProxy(false) }
   }
 
   return (
@@ -77,7 +89,9 @@ export function Settings() {
       <div className="vben-card">
         <div className="vben-card-header"><h2 className="vben-card-title"><Globe className="h-4 w-4" />网络代理</h2></div>
         <div className="vben-card-body space-y-4">
-          <div className="flex items-center justify-between gap-4"><div><p className="font-medium text-slate-900 dark:text-slate-100">启用代理 API</p><p className="text-sm text-slate-500">仅在你确实配置了代理服务时开启</p></div><label className="switch-ios"><input type="checkbox" checked={Boolean(settings['proxy.enabled'] ?? false)} onChange={(e) => setSettings({ ...settings, 'proxy.enabled': e.target.checked })} /><span className="switch-slider" /></label></div>
+          <div className="flex items-center justify-between gap-4"><div><p className="font-medium text-slate-900 dark:text-slate-100">启用全局代理</p><p className="text-sm text-slate-500">启用后后端所有 HTTP、HTTPS 和 WebSocket 请求默认经过该代理</p></div><label className="switch-ios"><input type="checkbox" checked={Boolean(settings['proxy.enabled'] ?? false)} onChange={(e) => setSettings({ ...settings, 'proxy.enabled': e.target.checked })} /><span className="switch-slider" /></label></div>
+          <label className="input-group"><span className="input-label">全局代理地址</span><input className="input-ios" value={String(settings['proxy.url'] || '')} onChange={(e) => setSettings({ ...settings, 'proxy.url': e.target.value })} placeholder="http://127.0.0.1:7890 或 socks5://127.0.0.1:1080" /></label>
+          <button type="button" onClick={handleTestProxy} disabled={testingProxy} className="btn-ios-secondary"><Network className="h-4 w-4" />{testingProxy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}测试代理连通性</button>
           <label className="input-group"><span className="input-label">代理 API 地址</span><textarea className="input-ios min-h-[72px] resize-y" value={String(settings['proxy.api_url'] || '')} onChange={(e) => setSettings({ ...settings, 'proxy.api_url': e.target.value })} placeholder="https://example.com/proxy" /></label>
         </div>
       </div>

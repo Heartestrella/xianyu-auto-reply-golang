@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 	"io"
 	"net/http"
 	"net/url"
@@ -115,7 +116,7 @@ func Send(ctx context.Context, ch Channel, message string) error {
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
-	resp, err := (&http.Client{Timeout: 15 * time.Second}).Do(req)
+	resp, err := proxy.Client(15 * time.Second).Do(req)
 	if err != nil {
 		return err
 	}

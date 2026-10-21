@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 )
 
 var remoteCaptchaKeys = map[string]string{"url": "captcha.remote_service_url", "secret_key": "captcha.remote_secret_key", "pass_cookies": "captcha.remote_pass_cookies", "block_remote_calls": "captcha.block_remote_calls", "local_weight": "captcha.real_mouse_weight_local", "remote_weight": "captcha.real_mouse_weight_remote", "remote_processing_max": "captcha.remote_processing_max", "remote_cooldown_seconds": "captcha.remote_cooldown_seconds"}
@@ -270,7 +271,7 @@ func postJSON(ctxReq *http.Request, endpoint string, payload map[string]any) (in
 		return 0, nil, "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := (&http.Client{Timeout: 15 * time.Second}).Do(req)
+	resp, err := proxy.Client(15 * time.Second).Do(req)
 	if err != nil {
 		return 0, nil, "", err
 	}

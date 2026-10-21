@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 )
 
 type alipayConfig struct{ AppID, PrivateKey, PublicKey, Gateway, NotifyURL string }
@@ -164,7 +165,7 @@ func (s *Server) createAlipayOrder(ctx context.Context, userID int64, amount, or
 	values.Set("sign", signature)
 	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, cfg.Gateway, strings.NewReader(values.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
-	resp, e := http.DefaultClient.Do(req)
+	resp, e := proxy.Client(30 * time.Second).Do(req)
 	if e != nil {
 		return nil, e
 	}

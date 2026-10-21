@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 	"github.com/zhinianboke/xianyu-auto-go/internal/xianyu"
 )
 
@@ -46,6 +47,9 @@ func (s *Server) loadPlatformAccounts(r *http.Request, id string) ([]platformAcc
 	return out, rows.Err()
 }
 func accountProxy(a platformAccount) string {
+	if proxy.Enabled() {
+		return proxy.URL()
+	}
 	if a.ProxyType == "" || a.ProxyType == "none" || !a.ProxyPort.Valid {
 		return ""
 	}

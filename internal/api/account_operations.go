@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 	"github.com/zhinianboke/xianyu-auto-go/internal/xianyu"
 )
 
@@ -113,8 +114,11 @@ func mergeResponseCookies(raw string, cookies []*http.Cookie) (string, []string)
 	return strings.Join(parts, "; "), updated
 }
 func renewCookie(ctx context.Context, raw string, configuredProxy ...string) (string, []string, error) {
-	transport := &http.Transport{Proxy: http.ProxyFromEnvironment}
+	transport := proxy.Transport()
 	if len(configuredProxy) > 0 && strings.TrimSpace(configuredProxy[0]) != "" {
+		if proxy.Enabled() {
+			configuredProxy[0] = proxy.URL()
+		}
 		parsed, err := url.Parse(configuredProxy[0])
 		if err != nil || parsed.Scheme == "" || parsed.Host == "" {
 			return raw, nil, fmt.Errorf("账号代理配置无效")

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 	"github.com/zhinianboke/xianyu-auto-go/internal/xianyu"
 )
 
@@ -34,6 +35,9 @@ func (e *Engine) syncAccounts(ctx context.Context) ([]syncAccount, error) {
 	return out, rows.Err()
 }
 func syncProxy(a syncAccount) string {
+	if proxy.Enabled() {
+		return proxy.URL()
+	}
 	if a.ProxyType == "" || a.ProxyType == "none" || !a.ProxyPort.Valid {
 		return ""
 	}

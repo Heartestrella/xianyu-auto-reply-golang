@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 	"net/http"
 	"net/url"
 	"strings"
@@ -61,7 +62,7 @@ func (s *Server) publishAddressInputTips(w http.ResponseWriter, r *http.Request)
 	req.Header.Set("Accept", "application/json, text/javascript, */*; q=0.01")
 	req.Header.Set("Origin", "https://seller.goofish.com")
 	req.Header.Set("Referer", "https://seller.goofish.com/")
-	resp, err := (&http.Client{Timeout: 20 * time.Second}).Do(req)
+	resp, err := proxy.Client(20 * time.Second).Do(req)
 	if err != nil {
 		write(w, 200, response{Success: false, Message: "所在地搜索接口请求失败，请稍后重试"})
 		return

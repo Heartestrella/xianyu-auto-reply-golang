@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 	"image"
 	_ "image/gif"
 	_ "image/jpeg"
@@ -286,7 +287,7 @@ func resolvePublishAddress(ctx context.Context, item map[string]any, snapshot ma
 	}
 	q := url.Values{"s": {"rsv3"}, "key": {"c9b68d4ce9a2a97f22a4a439404488ca"}, "platform": {"JS"}, "keywords": {keyword}, "city": {"全国"}, "citylimit": {"false"}, "datatype": {"all"}}
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "https://restapi.amap.com/v3/assistant/inputtips?"+q.Encode(), nil)
-	resp, e := http.DefaultClient.Do(req)
+	resp, e := proxy.Client(90 * time.Second).Do(req)
 	if e != nil {
 		return nil, fmt.Errorf("宝贝所在地解析失败：%w", e)
 	}
@@ -356,12 +357,7 @@ func uploadPublishImage(ctx context.Context, source string, account platformAcco
 	req.Header.Set("X-Requested-With", "XMLHttpRequest")
 	req.Header.Set("User-Agent", "Mozilla/5.0")
 	_ = contentType
-	client := &http.Client{Timeout: 90 * time.Second}
-	if proxy := accountProxy(account); proxy != "" {
-		if u, pe := url.Parse(proxy); pe == nil {
-			client.Transport = &http.Transport{Proxy: http.ProxyURL(u)}
-		}
-	}
+	client := publishHTTPClient(account, 90*time.Second)
 	resp, e := client.Do(req)
 	if e != nil {
 		return nil, e
@@ -395,7 +391,7 @@ func readPublishImage(ctx context.Context, source string) ([]byte, string, strin
 		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, source, nil)
 		req.Header.Set("User-Agent", "Mozilla/5.0")
 		req.Header.Set("Referer", "https://www.goofish.com/")
-		resp, e := http.DefaultClient.Do(req)
+		resp, e := proxy.Client(90 * time.Second).Do(req)
 		if e != nil {
 			return nil, "", "", e
 		}

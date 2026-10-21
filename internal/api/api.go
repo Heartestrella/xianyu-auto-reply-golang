@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -22,6 +23,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/zhinianboke/xianyu-auto-go/internal/auth"
 	"github.com/zhinianboke/xianyu-auto-go/internal/config"
+	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 	"github.com/zhinianboke/xianyu-auto-go/internal/xianyu"
 )
 
@@ -2063,10 +2065,84 @@ func (s *Server) cardItemsUpdate(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) settingRoutes(r chi.Router) {
 	r.Get("/", s.settings)
+	r.Post("/test-proxy", s.testProxy)
 	r.Post("/test-token-remote", s.testTokenRemote)
 	r.Post("/test-password-login-remote", s.testPasswordLoginRemote)
 	r.Get("/{key}", s.settingGet)
 	r.Put("/{key}", s.settingPut)
+}
+
+func (s *Server) testProxy(w http.ResponseWriter, r *http.Request) {
+	var p struct {
+		Enabled bool   `json:"enabled"`
+		URL     string `json:"url"`
+	}
+	if decode(r, &p) != nil {
+		fail(w, 400, "请求格式错误")
+		return
+	}
+	proxyURL := strings.TrimSpace(p.URL)
+	if p.Enabled {
+		validated, err := proxy.Validate(proxyURL)
+		if err != nil {
+			fail(w, 400, err.Error())
+			return
+		}
+		proxyURL = validated
+	}
+	transport := &http.Transport{}
+	if p.Enabled {
+		u, _ := url.Parse(proxyURL)
+		transport.Proxy = http.ProxyURL(u)
+	} else {
+		transport.Proxy = proxy.ProxyFunc()
+	}
+	client := &http.Client{Timeout: 15 * time.Second, Transport: transport}
+	endpoints := []string{"https://api.ipify.org?format=json", "https://ifconfig.me/ip", "https://api.myip.com"}
+	var lastErr error
+	for _, endpoint := range endpoints {
+		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, endpoint, nil)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		body, readErr := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		resp.Body.Close()
+		if readErr != nil {
+			lastErr = readErr
+			continue
+		}
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			lastErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+			continue
+		}
+		ip := strings.TrimSpace(string(body))
+		var result struct {
+			IP string `json:"ip"`
+		}
+		if json.Unmarshal(body, &result) == nil && strings.TrimSpace(result.IP) != "" {
+			ip = strings.TrimSpace(result.IP)
+		}
+		if strings.HasPrefix(ip, "{") {
+			var myip struct {
+				IP string `json:"ip"`
+			}
+			if json.Unmarshal(body, &myip) == nil {
+				ip = strings.TrimSpace(myip.IP)
+			}
+		}
+		if ip != "" && !strings.ContainsAny(ip, "{}\n\r") {
+			ok(w, "代理连接正常", map[string]any{"ip": ip})
+			return
+		}
+		lastErr = fmt.Errorf("IP 服务返回异常")
+	}
+	fail(w, 502, "代理连接失败: "+lastErr.Error())
 }
 func (s *Server) settings(w http.ResponseWriter, r *http.Request) {
 	rows, e := s.db.QueryContext(r.Context(), `SELECT key,value,description FROM system_settings`)
@@ -2111,7 +2187,24 @@ func (s *Server) settingPut(w http.ResponseWriter, r *http.Request) {
 		b, _ := json.Marshal(v)
 		str = string(b)
 	}
-	_, e := s.db.ExecContext(r.Context(), `INSERT INTO system_settings(key,value,description) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,description=excluded.description,updated_at=CURRENT_TIMESTAMP`, chi.URLParam(r, "key"), str, fmt.Sprint(p["description"]))
+	key := chi.URLParam(r, "key")
+	if key == "proxy.url" || key == "proxy.enabled" {
+		var enabledRaw, urlRaw string
+		_ = s.db.QueryRowContext(r.Context(), `SELECT COALESCE(value,'') FROM system_settings WHERE key='proxy.enabled'`).Scan(&enabledRaw)
+		_ = s.db.QueryRowContext(r.Context(), `SELECT COALESCE(value,'') FROM system_settings WHERE key='proxy.url'`).Scan(&urlRaw)
+		if key == "proxy.url" {
+			urlRaw = str
+		}
+		if key == "proxy.enabled" {
+			enabledRaw = str
+		}
+		enabled := strings.EqualFold(strings.TrimSpace(enabledRaw), "true")
+		if err := proxy.Apply(enabled, urlRaw); err != nil {
+			fail(w, 400, err.Error())
+			return
+		}
+	}
+	_, e := s.db.ExecContext(r.Context(), `INSERT INTO system_settings(key,value,description) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,description=excluded.description,updated_at=CURRENT_TIMESTAMP`, key, str, fmt.Sprint(p["description"]))
 	if e != nil {
 		fail(w, 500, e.Error())
 		return

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 	"github.com/zhinianboke/xianyu-auto-go/internal/xianyu"
 )
 
@@ -172,7 +173,7 @@ func rateFeedback(ctx context.Context, cfg map[string]any) string {
 	if err != nil {
 		return ""
 	}
-	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
+	resp, err := proxy.Client(30 * time.Second).Do(req)
 	if err != nil {
 		return ""
 	}

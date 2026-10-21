@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 )
 
 type geetestState struct {
@@ -60,7 +61,7 @@ func (s *Server) geetestRegister(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	q := url.Values{"digestmod": {"md5"}, "user_id": {userID}, "client_type": {"web"}, "gt": {captcha}, "json_format": {"1"}, "sdk": {"python-fastapi:3.1.1"}}
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, base+"/register.php?"+q.Encode(), nil)
-	resp, e := http.DefaultClient.Do(req)
+	resp, e := proxy.Client(30 * time.Second).Do(req)
 	data := map[string]any{}
 	online := false
 	if e == nil {
@@ -108,7 +109,7 @@ func (s *Server) geetestValidate(w http.ResponseWriter, r *http.Request) {
 	values := url.Values{"seccode": {p.Seccode}, "json_format": {"1"}, "challenge": {p.Challenge}, "sdk": {"python-fastapi:3.1.1"}, "captchaid": {captcha}, "user_id": {userID}, "client_type": {"web"}}
 	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, base+"/validate.php", strings.NewReader(values.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, e := http.DefaultClient.Do(req)
+	resp, e := proxy.Client(30 * time.Second).Do(req)
 	if e != nil {
 		write(w, 200, map[string]any{"success": false, "code": 500, "message": "验证服务异常"})
 		return

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 	"net/http"
 	"net/url"
 	"os"
@@ -80,7 +81,7 @@ func (s *Server) versionCheck(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/version.json", nil)
 	req.Header.Set("User-Agent", "XianyuAutoReply-GoUpdater")
-	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
+	resp, err := proxy.Client(10 * time.Second).Do(req)
 	empty := map[string]any{"has_update": false, "current_version": currentAppVersion, "remote_version": "", "description": "", "filename": "", "download_url": ""}
 	if err != nil {
 		write(w, 200, response{Success: false, Message: "无法连接更新服务器", Data: empty})

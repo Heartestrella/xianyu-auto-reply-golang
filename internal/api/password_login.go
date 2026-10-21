@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 	"github.com/zhinianboke/xianyu-auto-go/internal/xianyu"
 )
 
@@ -222,7 +223,7 @@ func (s *Server) setPasswordState(id, status, message, errText, verify string) {
 
 func (s *Server) runPasswordLogin(ctx context.Context, id string, x *passwordLoginSession) {
 	jar, _ := cookiejar.New(nil)
-	client := &http.Client{Timeout: 30 * time.Second, Jar: jar}
+	client := &http.Client{Timeout: 30 * time.Second, Jar: jar, Transport: proxy.Transport()}
 	form, err := passwordLoginForm(x.Account, x.Password)
 	if err != nil {
 		s.setPasswordState(id, "failed", "", err.Error(), "")
@@ -370,7 +371,7 @@ func (s *Server) solvePasswordSlider(ctx context.Context, punish string) (map[st
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-API-Key", key)
-	resp, err := (&http.Client{Timeout: 90 * time.Second}).Do(req)
+	resp, err := proxy.Client(90 * time.Second).Do(req)
 	if err != nil {
 		return nil, err
 	}

@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 	"github.com/zhinianboke/xianyu-auto-go/internal/xianyu"
 )
 
@@ -199,7 +200,7 @@ func readPublishVideo(ctx context.Context, v map[string]any) ([]byte, string, st
 	}
 	if strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://") {
 		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, source, nil)
-		resp, e := http.DefaultClient.Do(req)
+		resp, e := proxy.Client(90 * time.Second).Do(req)
 		if e != nil {
 			return nil, "", "", e
 		}
@@ -276,8 +277,11 @@ func mapCopy(src map[string]any) map[string]any {
 	return out
 }
 func publishHTTPClient(a platformAccount, timeout time.Duration) *http.Client {
-	tr := &http.Transport{Proxy: http.ProxyFromEnvironment}
+	tr := proxy.Transport()
 	if p := accountProxy(a); p != "" {
+		if proxy.Enabled() {
+			p = proxy.URL()
+		}
 		if u, e := url.Parse(p); e == nil {
 			tr.Proxy = http.ProxyURL(u)
 		}

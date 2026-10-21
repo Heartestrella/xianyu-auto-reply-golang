@@ -24,6 +24,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/zhinianboke/xianyu-auto-go/internal/ai"
 	"github.com/zhinianboke/xianyu-auto-go/internal/notify"
+	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 )
 
 const tokenAPI = "https://h5api.m.goofish.com/h5/mtop.taobao.idlemessage.pc.login.token/1.0/"
@@ -288,7 +289,7 @@ func (m *Manager) connect(ctx context.Context, a Account) error {
 		a.Cookie = mergeCookies(a.Cookie, newCookies)
 		_, _ = m.db.ExecContext(ctx, `UPDATE xy_accounts SET cookie=?,last_refresh_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?`, a.Cookie, a.ID)
 	}
-	dialer := websocket.Dialer{HandshakeTimeout: 30 * time.Second, Proxy: http.ProxyFromEnvironment}
+	dialer := websocket.Dialer{HandshakeTimeout: 30 * time.Second, Proxy: proxy.ProxyFunc()}
 	if p := proxyURL(a); p != nil {
 		dialer.Proxy = http.ProxyURL(p)
 	}
@@ -653,7 +654,7 @@ func fetchToken(ctx context.Context, a Account, device string) (string, map[stri
 	req.Header.Set("Origin", "https://www.goofish.com")
 	req.Header.Set("Referer", "https://www.goofish.com/")
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/139 Safari/537.36")
-	tr := &http.Transport{Proxy: http.ProxyFromEnvironment}
+	tr := proxy.Transport()
 	if p := proxyURL(a); p != nil {
 		tr.Proxy = http.ProxyURL(p)
 	}
@@ -686,6 +687,10 @@ func fetchToken(ctx context.Context, a Account, device string) (string, map[stri
 	return out.Data.AccessToken, set, nil
 }
 func proxyURL(a Account) *url.URL {
+	if proxy.Enabled() {
+		u, _ := url.Parse(proxy.URL())
+		return u
+	}
 	if a.ProxyType == "" || a.ProxyType == "none" || a.ProxyHost == "" || !a.ProxyPort.Valid {
 		return nil
 	}
@@ -1112,7 +1117,7 @@ func (m *Manager) callRemoteLocationMessage(ctx context.Context, a Account, v In
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-API-Key", secret)
-	client := &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	client := &http.Client{Timeout: 15 * time.Second, Transport: proxy.Transport(), CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	response, err := client.Do(req)
 	if err != nil {
 		m.log.Warn("remote location reply failed", "account", a.AccountID, "error", err)
@@ -1174,7 +1179,7 @@ func (m *Manager) callDefaultReplyAPI(ctx context.Context, a Account, v Incoming
 		return ""
 	}
 	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{Timeout: time.Duration(timeout) * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	client := &http.Client{Timeout: time.Duration(timeout) * time.Second, Transport: proxy.Transport(), CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	response, err := client.Do(req)
 	if err != nil {
 		m.log.Warn("default reply API failed", "account", a.AccountID, "error", err)
