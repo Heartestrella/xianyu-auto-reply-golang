@@ -128,6 +128,9 @@ func (s *Server) ExecuteScheduledAutoOrder(ctx context.Context) error {
 	}
 	disabled := map[string]bool{}
 	perTask := map[string]int{}
+	taskRotation := map[string]int{}
+	fallbackRotation := map[string]int{}
+	candidateCache := map[string]monitoredOrderAccounts{}
 	failures := []string{}
 	for _, j := range jobs {
 		item, task := map[string]any{}, map[string]any{}
@@ -152,26 +155,61 @@ func (s *Server) ExecuteScheduledAutoOrder(ctx context.Context) error {
 		if perTask[taskID] >= limit {
 			continue
 		}
-		ids := monitorAccountIDs(task["order_account_ids"])
-		if dm := strings.TrimSpace(firstString(item, "dm_account_id")); dm != "" {
-			ids = append([]string{dm}, ids...)
+		candidates, cached := candidateCache[taskID]
+		if !cached {
+			var resolveErr error
+			candidates, resolveErr = s.resolveMonitoredOrderAccounts(ctx, j.owner, fallbackInt64(task["category_id"]), monitorAccountIDs(task["order_account_ids"]))
+			if resolveErr != nil {
+				failures = append(failures, fmt.Sprintf("商品%s: 加载下单账号失败: %v", itemID, resolveErr))
+				continue
+			}
+			candidateCache[taskID] = candidates
 		}
-		seen := map[string]bool{}
+		rotateAccounts := func(accounts []platformAccount, start int) []platformAccount {
+			if len(accounts) < 2 {
+				return accounts
+			}
+			start %= len(accounts)
+			return append(append([]platformAccount{}, accounts[start:]...), accounts[:start]...)
+		}
+		dmAccountID := strings.TrimSpace(firstString(item, "dm_account_id"))
+		orderedCandidates := []platformAccount{}
+		if dmAccountID != "" {
+			for _, account := range candidates.task {
+				if account.AccountID == dmAccountID {
+					orderedCandidates = append(orderedCandidates, account)
+					break
+				}
+			}
+		}
+		for _, account := range rotateAccounts(candidates.task, taskRotation[taskID]) {
+			if account.AccountID != dmAccountID {
+				orderedCandidates = append(orderedCandidates, account)
+			}
+		}
+		taskRotation[taskID]++
+		fallbackKey := fmt.Sprintf("%d:%d", j.owner, fallbackInt64(task["category_id"]))
+		if len(candidates.fallback) > 0 {
+			orderedCandidates = append(orderedCandidates, rotateAccounts(candidates.fallback, fallbackRotation[fallbackKey])...)
+			fallbackRotation[fallbackKey]++
+		}
+		if len(orderedCandidates) == 0 {
+			reason := "无可用下单账号"
+			if len(candidates.unavailable) > 0 {
+				reason += "：" + strings.Join(candidates.unavailable, "；")
+			}
+			_, _ = s.db.ExecContext(ctx, `UPDATE resource_records SET data=json_set(data,'$.order_status','no_account','$.order_fail_reason',?),updated_at=CURRENT_TIMESTAMP WHERE id=?`, truncateRunes(reason, 500), j.id)
+			continue
+		}
 		ordered := false
 		attempted := false
 		lastError := ""
 		noAccount := true
-		for _, aid := range ids {
-			if seen[aid] || disabled[aid] {
+		for _, a := range orderedCandidates {
+			aid := a.AccountID
+			if disabled[aid] {
 				continue
 			}
-			seen[aid] = true
-			var a platformAccount
-			err = s.db.QueryRowContext(ctx, `SELECT id,owner_id,account_id,cookie,COALESCE(proxy_type,'none'),COALESCE(proxy_host,''),proxy_port,proxy_user,proxy_pass FROM xy_accounts WHERE owner_id=? AND account_id=? AND status='active'`, j.owner, aid).Scan(&a.ID, &a.OwnerID, &a.AccountID, &a.Cookie, &a.ProxyType, &a.ProxyHost, &a.ProxyPort, &a.ProxyUser, &a.ProxyPass)
-			if err != nil {
-				continue
-			}
-			noAccount = false
 			id, invalid, placeErr := s.placeMonitoredOrder(ctx, a, itemID)
 			if invalid {
 				disabled[aid] = true
@@ -182,6 +220,7 @@ func (s *Server) ExecuteScheduledAutoOrder(ctx context.Context) error {
 				}
 				continue
 			}
+			noAccount = false
 			attempted = true
 			if placeErr != nil {
 				lastError = placeErr.Error()
@@ -202,7 +241,19 @@ func (s *Server) ExecuteScheduledAutoOrder(ctx context.Context) error {
 			continue
 		}
 		if noAccount {
-			_, _ = s.db.ExecContext(ctx, `UPDATE resource_records SET data=json_set(data,'$.order_status','no_account','$.order_fail_reason','无可用下单账号'),updated_at=CURRENT_TIMESTAMP WHERE id=?`, j.id)
+			reason := "任务下单账号及兜底账号本次运行均不可用"
+			if lastError != "" {
+				reason += "：" + lastError
+			}
+			if len(candidates.unavailable) > 0 {
+				if lastError != "" {
+					reason += "；"
+				} else {
+					reason += "："
+				}
+				reason += strings.Join(candidates.unavailable, "；")
+			}
+			_, _ = s.db.ExecContext(ctx, `UPDATE resource_records SET data=json_set(data,'$.order_status','no_account','$.order_fail_reason',?),updated_at=CURRENT_TIMESTAMP WHERE id=?`, truncateRunes(reason, 500), j.id)
 			continue
 		}
 		if attempted {

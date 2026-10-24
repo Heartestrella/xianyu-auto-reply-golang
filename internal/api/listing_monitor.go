@@ -359,6 +359,9 @@ func (s *Server) ExecuteScheduledDMSend(ctx context.Context) error {
 	}
 	failures := []string{}
 	perTask := map[string]int{}
+	dmRotation := map[string]int{}
+	candidateCache := map[string]monitoredOrderAccounts{}
+	disabledDMAccounts := map[string]bool{}
 	for _, job := range jobs {
 		item, task := map[string]any{}, map[string]any{}
 		if json.Unmarshal([]byte(job.itemRaw), &item) != nil || json.Unmarshal([]byte(job.taskRaw), &task) != nil {
@@ -377,39 +380,111 @@ func (s *Server) ExecuteScheduledDMSend(ctx context.Context) error {
 			continue
 		}
 		accountID := strings.TrimSpace(firstString(item, "order_account_id"))
-		if accountID == "" {
-			ids := monitorAccountIDs(task["order_account_ids"])
-			if len(ids) > 0 {
-				accountID = ids[perTask[taskID]%len(ids)]
+		strict := accountID != ""
+		candidates := []platformAccount{}
+		if strict {
+			account, unavailable, exists, loadErr := s.loadMonitoredOrderAccount(ctx, accountID)
+			if loadErr != nil {
+				failures = append(failures, fmt.Sprintf("商品%d: 查询下单账号失败: %v", job.id, loadErr))
+				continue
 			}
-		}
-		if accountID == "" {
-			continue
-		}
-		var exists int
-		_ = s.db.QueryRowContext(ctx, `SELECT count(*) FROM xy_accounts WHERE owner_id=? AND account_id=?`, job.owner, accountID).Scan(&exists)
-		if exists == 0 {
-			_, _ = s.db.ExecContext(ctx, `UPDATE resource_records SET data=json_set(data,'$.dm_status','failed','$.dm_fail_reason','下单账号已删除','$.dm_attempts',3),updated_at=CURRENT_TIMESTAMP WHERE id=?`, job.id)
-			failures = append(failures, fmt.Sprintf("商品%d下单账号已删除", job.id))
-			continue
-		}
-		if s.online != nil && !s.online(accountID) {
-			_, _ = s.db.ExecContext(ctx, `UPDATE resource_records SET data=json_set(data,'$.dm_status','waiting','$.dm_fail_reason','下单账号IM未连接'),updated_at=CURRENT_TIMESTAMP WHERE id=?`, job.id)
-			continue
+			if !exists {
+				_, _ = s.db.ExecContext(ctx, `UPDATE resource_records SET data=json_set(data,'$.dm_status','failed','$.dm_fail_reason','下单账号已删除','$.dm_attempts',3),updated_at=CURRENT_TIMESTAMP WHERE id=?`, job.id)
+				failures = append(failures, fmt.Sprintf("商品%d下单账号已删除", job.id))
+				perTask[taskID]++
+				continue
+			}
+			if unavailable != "" {
+				_, _ = s.db.ExecContext(ctx, `UPDATE resource_records SET data=json_set(data,'$.dm_status','waiting','$.dm_fail_reason',?),updated_at=CURRENT_TIMESTAMP WHERE id=?`, "下单账号暂不可用："+unavailable, job.id)
+				continue
+			}
+			if s.online != nil && !s.online(accountID) {
+				_, _ = s.db.ExecContext(ctx, `UPDATE resource_records SET data=json_set(data,'$.dm_status','waiting','$.dm_fail_reason','下单账号IM未连接'),updated_at=CURRENT_TIMESTAMP WHERE id=?`, job.id)
+				continue
+			}
+			candidates = []platformAccount{account}
+		} else {
+			resolved, cached := candidateCache[taskID]
+			if !cached {
+				var resolveErr error
+				resolved, resolveErr = s.resolveMonitoredOrderAccounts(ctx, job.owner, fallbackInt64(task["category_id"]), monitorAccountIDs(task["order_account_ids"]))
+				if resolveErr != nil {
+					failures = append(failures, fmt.Sprintf("商品%d: 加载下单账号失败: %v", job.id, resolveErr))
+					continue
+				}
+				candidateCache[taskID] = resolved
+			}
+			candidates = append(candidates, resolved.task...)
+			candidates = append(candidates, resolved.fallback...)
+			if len(candidates) > 1 {
+				start := dmRotation[taskID] % len(candidates)
+				candidates = append(append([]platformAccount{}, candidates[start:]...), candidates[:start]...)
+			}
+			dmRotation[taskID]++
+			if len(candidates) == 0 {
+				reason := "无可用下单账号，等待下次重试"
+				if len(resolved.unavailable) > 0 {
+					reason = "无可用下单账号：" + strings.Join(resolved.unavailable, "；")
+				}
+				_, _ = s.db.ExecContext(ctx, `UPDATE resource_records SET data=json_set(data,'$.dm_status','waiting','$.dm_fail_reason',?),updated_at=CURRENT_TIMESTAMP WHERE id=?`, truncateRunes(reason, 500), job.id)
+				continue
+			}
 		}
 		sellerID := strings.TrimSpace(firstString(item, "seller_user_id", "seller_id"))
 		itemID := strings.TrimSpace(firstString(item, "item_id"))
-		chatID, createErr := s.chatCreate(ctx, accountID, sellerID, itemID)
-		if createErr == nil {
-			_, createErr = s.chatSend(ctx, accountID, chatID, sellerID, content)
+		var chatID string
+		var sendErr error
+		usedAccount := ""
+		unavailableReasons := []string{}
+		for _, candidate := range candidates {
+			candidateID := candidate.AccountID
+			if !strict {
+				if disabledDMAccounts[candidateID] {
+					unavailableReasons = append(unavailableReasons, candidateID+" 本轮已判不可用")
+					continue
+				}
+				if s.online != nil && !s.online(candidateID) {
+					disabledDMAccounts[candidateID] = true
+					unavailableReasons = append(unavailableReasons, candidateID+" IM未连接")
+					continue
+				}
+			}
+			chatID, sendErr = s.chatCreate(ctx, candidateID, sellerID, itemID)
+			if sendErr == nil {
+				_, sendErr = s.chatSend(ctx, candidateID, chatID, sellerID, content)
+			}
+			if sendErr == nil {
+				usedAccount = candidateID
+				break
+			}
+			if strict {
+				break
+			}
+			disabledDMAccounts[candidateID] = true
+			unavailableReasons = append(unavailableReasons, candidateID+": "+sendErr.Error())
 		}
-		perTask[taskID]++
-		if createErr != nil {
-			_, _ = s.db.ExecContext(ctx, `UPDATE resource_records SET data=json_set(data,'$.dm_status','failed','$.dm_fail_reason',?,'$.dm_attempts',COALESCE(json_extract(data,'$.dm_attempts'),0)+1,'$.dm_account_id',NULL),updated_at=CURRENT_TIMESTAMP WHERE id=?`, truncateRunes(createErr.Error(), 500), job.id)
-			failures = append(failures, fmt.Sprintf("商品%d: %v", job.id, createErr))
+		if usedAccount == "" && sendErr == nil {
+			reason := "所有候选下单账号IM未连接，等待下次重试"
+			if len(unavailableReasons) > 0 {
+				reason = strings.Join(unavailableReasons, "；")
+			}
+			_, _ = s.db.ExecContext(ctx, `UPDATE resource_records SET data=json_set(data,'$.dm_status','waiting','$.dm_fail_reason',?),updated_at=CURRENT_TIMESTAMP WHERE id=?`, truncateRunes(reason, 500), job.id)
 			continue
 		}
-		_, _ = s.db.ExecContext(ctx, `UPDATE resource_records SET data=json_set(data,'$.is_dm_sent',true,'$.dm_status','success','$.dm_fail_reason',NULL,'$.dm_account_id',?,'$.dm_chat_id',?,'$.dm_sent_at',CURRENT_TIMESTAMP),updated_at=CURRENT_TIMESTAMP WHERE id=?`, accountID, chatID, job.id)
+		if sendErr != nil {
+			if strict {
+				_, _ = s.db.ExecContext(ctx, `UPDATE resource_records SET data=json_set(data,'$.dm_status','waiting','$.dm_fail_reason',?,'$.dm_account_id',NULL),updated_at=CURRENT_TIMESTAMP WHERE id=?`, truncateRunes(sendErr.Error(), 500), job.id)
+				continue
+			}
+			reason := sendErr.Error()
+			if len(unavailableReasons) > 0 {
+				reason = strings.Join(unavailableReasons, "；")
+			}
+			_, _ = s.db.ExecContext(ctx, `UPDATE resource_records SET data=json_set(data,'$.dm_status','waiting','$.dm_fail_reason',?,'$.dm_account_id',NULL),updated_at=CURRENT_TIMESTAMP WHERE id=?`, truncateRunes(reason, 500), job.id)
+			continue
+		}
+		perTask[taskID]++
+		_, _ = s.db.ExecContext(ctx, `UPDATE resource_records SET data=json_set(data,'$.is_dm_sent',true,'$.dm_status','success','$.dm_fail_reason',NULL,'$.dm_account_id',?,'$.dm_chat_id',?,'$.dm_sent_at',CURRENT_TIMESTAMP),updated_at=CURRENT_TIMESTAMP WHERE id=?`, usedAccount, chatID, job.id)
 	}
 	if len(failures) > 0 {
 		return errors.New(strings.Join(failures, "; "))
