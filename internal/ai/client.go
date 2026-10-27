@@ -56,19 +56,31 @@ func (c *Client) openAI(ctx context.Context, cfg Config, message string) (string
 	messages = append(messages, map[string]string{"role": "user", "content": message})
 	body := map[string]any{"model": cfg.Model, "messages": messages, "temperature": 0.4, "stream": false}
 	var out struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
+		Choices []openAIChoice `json:"choices"`
+		// Some OpenAI-compatible gateways wrap the standard payload in a
+		// {"data": {...}} envelope. Accept both shapes so a compatible gateway
+		// does not look like an empty response.
+		Data *struct {
+			Choices []openAIChoice `json:"choices"`
+		} `json:"data"`
 	}
 	if err := c.requestJSON(ctx, http.MethodPost, base+"/chat/completions", cfg.APIKey, nil, body, &out); err != nil {
 		return "", err
 	}
-	if len(out.Choices) == 0 || strings.TrimSpace(out.Choices[0].Message.Content) == "" {
+	choices := out.Choices
+	if len(choices) == 0 && out.Data != nil {
+		choices = out.Data.Choices
+	}
+	if len(choices) == 0 || strings.TrimSpace(choices[0].Message.Content) == "" {
 		return "", errors.New("AI服务未返回回复内容")
 	}
-	return strings.TrimSpace(out.Choices[0].Message.Content), nil
+	return strings.TrimSpace(choices[0].Message.Content), nil
+}
+
+type openAIChoice struct {
+	Message struct {
+		Content string `json:"content"`
+	} `json:"message"`
 }
 
 func (c *Client) anthropic(ctx context.Context, cfg Config, message string) (string, error) {
