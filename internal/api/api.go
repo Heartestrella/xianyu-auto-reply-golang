@@ -115,6 +115,20 @@ func (s *Server) Router() http.Handler {
 		r.Get("/version/current", func(w http.ResponseWriter, r *http.Request) {
 			write(w, 200, map[string]any{"version": "go-1.0.0", "name": "闲鱼自动回复 Go 版"})
 		})
+		// Public external API: each handler validates its own secret_key
+		// (xy_users.secret_key). Upstream ships the handlers but never mounts
+		// them, which makes them unreachable; this block wires them up.
+		r.Post("/external/enabled-accounts", s.externalAccounts)
+		r.Post("/external/enabled-accounts/capability", s.externalAccountCapability)
+		r.Post("/external/category/recommend", s.externalCategoryRecommend)
+		r.Post("/external/category/properties", s.externalCategoryProperties)
+		r.Post("/external/publish/media", s.externalPublishMedia)
+		r.Post("/external/publish/single", s.externalPublishSingle)
+		r.Get("/external/orders", s.externalOrdersGet)
+		r.Post("/external/orders", s.externalOrdersPost)
+		r.Post("/external/account-cookie/sync", s.externalCookieSync)
+		r.Get("/external/message-logs", s.externalMessageLogsGet)
+		r.Post("/external/message-logs", s.externalMessageLogsPost)
 		r.Group(func(r chi.Router) {
 			r.Use(s.requireAuth)
 			r.Get("/auth/check-default-password", s.checkDefaultPassword)
