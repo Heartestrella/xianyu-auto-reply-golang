@@ -46,6 +46,10 @@ func (s *Server) accountConfigGet(kind string, defaults map[string]any) http.Han
 			for k, v := range defaults {
 				copy[k] = v
 			}
+			if kind == "auto_rate" {
+				ok(w, "", copy)
+				return
+			}
 			write(w, 200, copy)
 			return
 		}
@@ -55,6 +59,12 @@ func (s *Server) accountConfigGet(kind string, defaults map[string]any) http.Han
 		}
 		var m map[string]any
 		_ = json.Unmarshal([]byte(data), &m)
+		// The auto-rate UI consumes the original API's success/data envelope,
+		// including after saving. Other account-config clients use bare objects.
+		if kind == "auto_rate" {
+			ok(w, "", m)
+			return
+		}
 		write(w, 200, m)
 	}
 }
