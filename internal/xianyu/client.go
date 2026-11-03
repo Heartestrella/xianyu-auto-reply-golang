@@ -977,6 +977,18 @@ func nonemptyDeliveryLines(value string) []string {
 	}
 	return out
 }
+
+// Each nonempty line is an alternative keyword, as entered in the rules UI.
+func matchesKeyword(message, keywords string) bool {
+	for _, keyword := range strings.Split(keywords, "\n") {
+		keyword = strings.TrimSpace(keyword)
+		if keyword != "" && strings.Contains(message, keyword) {
+			return true
+		}
+	}
+	return false
+}
+
 func (m *Manager) matchReply(ctx context.Context, a Account, v Incoming) replyDecision {
 	rows, e := m.db.QueryContext(ctx, `SELECT keyword,reply,item_id,type,extra FROM xy_keyword_rules WHERE owner_id=? AND account_id=? ORDER BY CASE WHEN item_id=? THEN 0 WHEN item_id='' THEN 1 ELSE 2 END,id`, a.OwnerID, a.AccountID, v.ItemID)
 	if e == nil {
@@ -987,7 +999,7 @@ func (m *Manager) matchReply(ctx context.Context, a Account, v Incoming) replyDe
 			if item != "" && item != v.ItemID {
 				continue
 			}
-			if k != "" && strings.Contains(v.Text, k) {
+			if matchesKeyword(v.Text, k) {
 				switch typ {
 				case "image":
 					extra := map[string]any{}
