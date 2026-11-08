@@ -98,6 +98,29 @@ func (s *Server) SetChatImageSender(send func(context.Context, string, string, s
 }
 func (s *Server) SetAccountRestarter(restart func(string))       { s.accountRestart = restart }
 func (s *Server) SetServiceRestarter(restart func(string) error) { s.serviceRestart = restart }
+
+// noListing hides directory listings from http.FileServer. Uploaded files must
+// stay reachable by their full path because image URLs are sent to buyers, but
+// the directory itself carries no public value.
+type noListing struct{ fs http.FileSystem }
+
+func (n noListing) Open(name string) (http.File, error) {
+	f, err := n.fs.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	info, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+	if info.IsDir() {
+		f.Close()
+		return nil, os.ErrNotExist
+	}
+	return f, nil
+}
+
 func (s *Server) Router() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer, s.cors, s.accessLog)
@@ -219,7 +242,7 @@ func (s *Server) Router() http.Handler {
 		})
 	})
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir(filepath.Join(s.cfg.StaticDir, "static")))))
-	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(filepath.Join(s.cfg.DataDir, "uploads")))))
+	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(noListing{http.Dir(filepath.Join(s.cfg.DataDir, "uploads"))})))
 	r.Get("/*", s.spa)
 	return r
 }
