@@ -75,9 +75,9 @@ func (s *Server) executePublish(ctx context.Context, ownerID int64, accountID st
 		account.Cookie = capabilityCookie
 	}
 	personal := capability["is_fish_shop"] != true
-	var payload map[string]any
 	var request map[string]any
-	api, origin, referer := "mtop.idle.pc.backend.idleitem.publish", "https://seller.goofish.com", "https://seller.goofish.com/?site=COMMONPRO"
+	var extraParams, extraHeaders map[string]string
+	api, origin, referer, spmCnt := "mtop.idle.pc.backend.idleitem.publish", "https://seller.goofish.com", "https://seller.goofish.com/?site=COMMONPRO", "a21107h.42826273.0.0"
 	if personal {
 		personalPayload, personalCookie, personalErr := buildPersonalPublishPayload(ctx, item, account)
 		if personalErr != nil {
@@ -86,13 +86,12 @@ func (s *Server) executePublish(ctx context.Context, ownerID int64, accountID st
 		if personalCookie != "" {
 			account.Cookie = personalCookie
 		}
-		payload = personalPayload
 		request = personalPayload
-		api, origin, referer = "mtop.idle.pc.idleitem.publish", "https://www.goofish.com", "https://www.goofish.com/publish"
+		api, origin, referer, spmCnt = "mtop.idle.pc.idleitem.publish", "https://www.goofish.com", "https://www.goofish.com/publish", "a21ybx.publish.0.0"
+		extraParams = map[string]string{"spm_cnt": spmCnt}
+		extraHeaders = map[string]string{}
 	} else {
-		var buildErr error
-		var refreshedCookie string
-		payload, refreshedCookie, buildErr = buildPublishPayload(ctx, item, account, nil)
+		payload, refreshedCookie, buildErr := buildPublishPayload(ctx, item, account, nil)
 		if buildErr != nil {
 			return map[string]any{"success": false, "message": buildErr.Error()}
 		}
@@ -101,6 +100,9 @@ func (s *Server) executePublish(ctx context.Context, ownerID int64, accountID st
 		}
 		payloadBytes, _ := json.Marshal(payload)
 		request = map[string]any{"inputJson": string(payloadBytes)}
+		// 鱼小铺发布请求维持原有鉴权参数：缺失 idle_site_biz_code 会返回无权限访问。
+		extraParams = map[string]string{"idle_site_biz_code": "COMMONPRO", "spm_cnt": spmCnt}
+		extraHeaders = map[string]string{"idle_site_biz_code": "COMMONPRO"}
 	}
 	requestJSON, _ := json.Marshal(item)
 	var logID int64
@@ -113,7 +115,7 @@ func (s *Server) executePublish(ctx context.Context, ownerID int64, accountID st
 	res := xianyu.MTOPCall(ctx, xianyu.MTOPOptions{
 		API: api, Version: "1.0", Cookie: account.Cookie,
 		Proxy: accountProxy(account), Origin: origin, Referer: referer,
-		Data: request, ExtraParams: map[string]string{"spm_cnt": "a21ybx.publish.0.0"},
+		Data: request, ExtraParams: extraParams, ExtraHeaders: extraHeaders,
 	})
 	if res.Cookie != "" && res.Cookie != account.Cookie {
 		_, _ = s.db.ExecContext(ctx, `UPDATE xy_accounts SET cookie=?,last_refresh_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?`, res.Cookie, account.ID)
