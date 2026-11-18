@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 	"github.com/zhinianboke/xianyu-auto-go/internal/xianyu"
@@ -112,14 +113,37 @@ func (s *Server) fetchItemsAll(w http.ResponseWriter, r *http.Request) {
 			success++
 		}
 	}
-	write(w, 200, map[string]any{"success": len(failed) == 0, "message": "商品同步完成", "total_count": total, "saved_count": saved, "account_count": len(accounts), "success_account_count": success, "failed_account_count": len(failed), "failed_accounts": failed})
+	msg := "商品同步完成"
+	if len(failed) > 0 {
+		msg = "商品同步完成（部分账号失败: " + strings.Join(failed, "; ") + "）"
+	}
+	write(w, 200, map[string]any{"success": len(failed) == 0, "message": msg, "total_count": total, "saved_count": saved, "account_count": len(accounts), "success_account_count": success, "failed_account_count": len(failed), "failed_accounts": failed})
 }
-func (s *Server) fetchSellerItems(r *http.Request, a platformAccount, page int) ([]map[string]any, bool, error) {
-	result := xianyu.MTOPCall(r.Context(), xianyu.MTOPOptions{API: "mtop.alibaba.idle.seller.pc.common.item.search", Version: "1.0", Cookie: a.Cookie, Proxy: accountProxy(a), Origin: "https://seller.goofish.com", Referer: "https://seller.goofish.com/?site=COMMONPRO", Data: map[string]any{"pageNo": page, "pageSize": 30, "bizType": "commonPro", "searchRequest": "{}", "itemStatus": "0"}, ExtraParams: map[string]string{"spm_cnt": "a21107h.42826273.0.0", "needLoginPC": "true", "accountSite": "xianyu"}, ExtraHeaders: map[string]string{"idle_site_biz_code": "COMMONPRO", "idle_user_group_member_id": ""}})
+// saveCatalogItem upserts a fetched item into xy_catalog_items and returns the mapped item on success.
+func (s *Server) saveCatalogItem(r *http.Request, a platformAccount, mapped map[string]any) bool {
+	b, _ := json.Marshal(mapped)
+	_, e := s.db.ExecContext(r.Context(), `INSERT INTO xy_catalog_items(owner_id,account_id,item_id,title,price,status,data) VALUES(?,?,?,?,?,?,?) ON CONFLICT(account_id,item_id) DO UPDATE SET title=excluded.title,price=excluded.price,status=excluded.status,data=json_patch(COALESCE(xy_catalog_items.data,'{}'),excluded.data),updated_at=CURRENT_TIMESTAMP`, a.OwnerID, a.AccountID, mapped["item_id"], mapped["title"], mapped["price"], mapped["status"], string(b))
+	return e == nil
+}
+
+// updateAccountCookie persists a refreshed cookie for the account, if the MTOP layer returned one.
+func (s *Server) updateAccountCookie(r *http.Request, a platformAccount, result xianyu.MTOPResult) {
 	if result.Cookie != a.Cookie && result.Cookie != "" {
 		_, _ = s.db.ExecContext(r.Context(), `UPDATE xy_accounts SET cookie=?,last_refresh_at=CURRENT_TIMESTAMP WHERE id=?`, result.Cookie, a.ID)
 	}
+}
+
+func (s *Server) fetchSellerItems(r *http.Request, a platformAccount, page int) ([]map[string]any, bool, error) {
+	result := xianyu.MTOPCall(r.Context(), xianyu.MTOPOptions{API: "mtop.alibaba.idle.seller.pc.common.item.search", Version: "1.0", Cookie: a.Cookie, Proxy: accountProxy(a), Origin: "https://seller.goofish.com", Referer: "https://seller.goofish.com/?site=COMMONPRO", Data: map[string]any{"pageNo": page, "pageSize": 30, "bizType": "commonPro", "searchRequest": "{}", "itemStatus": "0"}, ExtraParams: map[string]string{"spm_cnt": "a21107h.42826273.0.0", "needLoginPC": "true", "accountSite": "xianyu"}, ExtraHeaders: map[string]string{"idle_site_biz_code": "COMMONPRO", "idle_user_group_member_id": ""}})
+	s.updateAccountCookie(r, a, result)
 	if !result.Success {
+		// 普通个人账号（未开通鱼小铺）无权访问卖家专业版接口。错误码来源：闲鱼服务端
+		// 对非鱼小铺身份调用 seller.pc.common.item.search 返回 FAIL_BIZ_IDLE_USER_UNAUTHORIZED::无权限访问。
+		// 此时改走个人版接口 mtop.idle.web.xyh.item.list（与原版 Python 项目行为一致）。
+		if strings.Contains(result.Error, "FAIL_BIZ_IDLE_USER_UNAUTHORIZED") {
+			a.Cookie = result.Cookie
+			return s.fetchPersonalItems(r, a, page)
+		}
 		return nil, false, fmt.Errorf("获取商品失败: %s", result.Error)
 	}
 	biz := nestedMap(result.Response, "data", "data")
@@ -135,13 +159,65 @@ func (s *Server) fetchSellerItems(r *http.Request, a platformAccount, page int) 
 			continue
 		}
 		mapped := map[string]any{"item_id": id, "id": id, "title": fmt.Sprint(m["title"]), "price": fmt.Sprint(m["reservePrice"]), "status": fmt.Sprint(m["itemStatus"]), "source": "seller", "image_url": fmt.Sprint(m["itemImageUrl"]), "quantity": m["quantity"], "idle_item_sku_list": m["idleItemSkuList"]}
-		b, _ := json.Marshal(mapped)
-		_, e := s.db.ExecContext(r.Context(), `INSERT INTO xy_catalog_items(owner_id,account_id,item_id,title,price,status,data) VALUES(?,?,?,?,?,?,?) ON CONFLICT(account_id,item_id) DO UPDATE SET title=excluded.title,price=excluded.price,status=excluded.status,data=json_patch(COALESCE(xy_catalog_items.data,'{}'),excluded.data),updated_at=CURRENT_TIMESTAMP`, a.OwnerID, a.AccountID, id, mapped["title"], mapped["price"], mapped["status"], string(b))
-		if e == nil {
+		if s.saveCatalogItem(r, a, mapped) {
 			out = append(out, mapped)
 		}
 	}
 	more, _ := biz["hasNextPage"].(bool)
+	return out, more, nil
+}
+
+// fetchPersonalItems 抓取个人版（非鱼小铺）账号的在售商品，走 mtop.idle.web.xyh.item.list。
+// 请求结构与字段映射参照原版 Python 项目的 ItemInfoManager.get_item_list_info。
+func (s *Server) fetchPersonalItems(r *http.Request, a platformAccount, page int) ([]map[string]any, bool, error) {
+	result := xianyu.MTOPCall(r.Context(), xianyu.MTOPOptions{
+		API: "mtop.idle.web.xyh.item.list", Version: "1.0", Cookie: a.Cookie, Proxy: accountProxy(a),
+		Origin: "https://www.goofish.com", Referer: "https://www.goofish.com/",
+		Data: map[string]any{"needGroupInfo": false, "pageNumber": page, "pageSize": 30, "groupName": "在售", "defaultGroup": true, "userId": a.AccountID},
+		ExtraParams: map[string]string{"spm_cnt": "a21ybx.im.0.0"},
+	})
+	s.updateAccountCookie(r, a, result)
+	if !result.Success {
+		return nil, false, fmt.Errorf("获取商品失败(个人版): %s", result.Error)
+	}
+	data := nestedMap(result.Response, "data")
+	cards, _ := data["cardList"].([]any)
+	out := []map[string]any{}
+	for _, v := range cards {
+		card, okc := v.(map[string]any)
+		if !okc {
+			continue
+		}
+		cardData, okd := card["cardData"].(map[string]any)
+		if !okd {
+			continue
+		}
+		id := fmt.Sprint(cardData["id"])
+		if id == "" {
+			continue
+		}
+		price := ""
+		if priceInfo, okp := cardData["priceInfo"].(map[string]any); okp {
+			price = fmt.Sprint(priceInfo["price"])
+		}
+		status := ""
+		if itemStatus, oks := cardData["itemStatus"]; oks {
+			status = fmt.Sprint(itemStatus)
+		}
+		imageURL := ""
+		if picInfo, oki := cardData["picInfo"].(map[string]any); oki {
+			if u, oku := picInfo["url"].(string); oku {
+				imageURL = u
+			} else if cardData["detailUrl"] != nil {
+				imageURL = fmt.Sprint(picInfo["url"])
+			}
+		}
+		mapped := map[string]any{"item_id": id, "id": id, "title": fmt.Sprint(cardData["title"]), "price": price, "status": status, "source": "personal", "image_url": imageURL, "quantity": cardData["quantity"]}
+		if s.saveCatalogItem(r, a, mapped) {
+			out = append(out, mapped)
+		}
+	}
+	more := len(out) == 30
 	return out, more, nil
 }
 func nestedMap(root map[string]any, keys ...string) map[string]any {
