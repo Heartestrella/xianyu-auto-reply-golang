@@ -64,15 +64,44 @@ func (s *Server) executePublish(ctx context.Context, ownerID int64, accountID st
 	if err = validateMaterial(item); err != nil {
 		return map[string]any{"success": false, "message": err.Error()}
 	}
-	payload, refreshedCookie, buildErr := buildPublishPayload(ctx, item, account, nil)
-	if buildErr != nil {
-		return map[string]any{"success": false, "message": buildErr.Error()}
+	// 普通个人账号（未开通鱼小铺）调用卖家专业版发布接口会被拒绝
+	// （FAIL_BIZ_IDLE_USER_UNAUTHORIZED::无权限访问）。先检测账号能力：
+	// 鱼小铺账号走 backend.idleitem.publish，普通账号走个人版 idleitem.publish。
+	capability, capabilityCookie, capErr := s.detectPublishCapability(ctx, account)
+	if capErr != nil {
+		return map[string]any{"success": false, "message": capErr.Error()}
 	}
-	if refreshedCookie != "" {
-		account.Cookie = refreshedCookie
+	if capabilityCookie != "" && capabilityCookie != account.Cookie {
+		account.Cookie = capabilityCookie
 	}
-	payloadBytes, _ := json.Marshal(payload)
-	request := map[string]any{"inputJson": string(payloadBytes)}
+	personal := capability["is_fish_shop"] != true
+	var payload map[string]any
+	var request map[string]any
+	api, origin, referer := "mtop.idle.pc.backend.idleitem.publish", "https://seller.goofish.com", "https://seller.goofish.com/?site=COMMONPRO"
+	if personal {
+		personalPayload, personalCookie, personalErr := buildPersonalPublishPayload(ctx, item, account)
+		if personalErr != nil {
+			return map[string]any{"success": false, "message": personalErr.Error()}
+		}
+		if personalCookie != "" {
+			account.Cookie = personalCookie
+		}
+		payload = personalPayload
+		request = personalPayload
+		api, origin, referer = "mtop.idle.pc.idleitem.publish", "https://www.goofish.com", "https://www.goofish.com/publish"
+	} else {
+		var buildErr error
+		var refreshedCookie string
+		payload, refreshedCookie, buildErr = buildPublishPayload(ctx, item, account, nil)
+		if buildErr != nil {
+			return map[string]any{"success": false, "message": buildErr.Error()}
+		}
+		if refreshedCookie != "" {
+			account.Cookie = refreshedCookie
+		}
+		payloadBytes, _ := json.Marshal(payload)
+		request = map[string]any{"inputJson": string(payloadBytes)}
+	}
 	requestJSON, _ := json.Marshal(item)
 	var logID int64
 	if batchID != "" {
@@ -82,9 +111,9 @@ func (s *Server) executePublish(ctx context.Context, ownerID int64, accountID st
 		}
 	}
 	res := xianyu.MTOPCall(ctx, xianyu.MTOPOptions{
-		API: "mtop.idle.pc.backend.idleitem.publish", Version: "1.0", Cookie: account.Cookie,
-		Proxy: accountProxy(account), Origin: "https://seller.goofish.com", Referer: "https://seller.goofish.com/?site=COMMONPRO",
-		Data: request, ExtraParams: map[string]string{"idle_site_biz_code": "COMMONPRO", "spm_cnt": "a21107h.42826273.0.0"}, ExtraHeaders: map[string]string{"idle_site_biz_code": "COMMONPRO"},
+		API: api, Version: "1.0", Cookie: account.Cookie,
+		Proxy: accountProxy(account), Origin: origin, Referer: referer,
+		Data: request, ExtraParams: map[string]string{"spm_cnt": "a21ybx.publish.0.0"},
 	})
 	if res.Cookie != "" && res.Cookie != account.Cookie {
 		_, _ = s.db.ExecContext(ctx, `UPDATE xy_accounts SET cookie=?,last_refresh_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?`, res.Cookie, account.ID)

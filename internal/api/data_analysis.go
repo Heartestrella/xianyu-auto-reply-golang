@@ -58,7 +58,12 @@ func (s *Server) dataAnalysisSummary(apiName string, browse bool) http.HandlerFu
 			_, _ = s.db.ExecContext(r.Context(), `UPDATE xy_accounts SET cookie=?,last_refresh_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?`, result.Cookie, account.ID)
 		}
 		if !result.Success {
-			write(w, 200, response{Success: false, Message: firstNonemptyAPI(result.Error, "获取数据失败")})
+			message := firstNonemptyAPI(result.Error, "获取数据失败")
+			// 数据罗盘是鱼小铺卖家中心功能，普通个人账号无权访问（与原版 Python 项目一致，无个人版替代接口）。
+			if strings.Contains(result.Error, "FAIL_BIZ_IDLE_USER_UNAUTHORIZED") {
+				message = "该账号未开通鱼小铺，无法使用卖家数据罗盘（数据罗盘为鱼小铺卖家中心功能）"
+			}
+			write(w, 200, response{Success: false, Message: message})
 			return
 		}
 		dataResult, _ := result.Response["data"].(map[string]any)
