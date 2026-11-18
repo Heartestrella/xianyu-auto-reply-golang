@@ -31,6 +31,12 @@ func TestPolishWindowConfigurationIsValidatedAndPreserved(t *testing.T) {
 		{"polish", "interval_seconds=90&run_start_time=11:00&run_end_time=12:30", 200},
 		{"polish", "enabled=false", 200},
 		{"polish", "interval_seconds=100&run_end_time=09:00", 400},
+		{"db_backup", "retention_days=0", 400},
+		{"db_backup", "retention_days=366", 400},
+		{"db_backup", "retention_days=abc", 400},
+		{"polish", "retention_days=7", 400},
+		{"db_backup", "interval_seconds=1800&retention_days=14", 200},
+		{"db_backup", "retention_days=7", 200},
 	} {
 		r := httptest.NewRequest("PUT", "/?"+tc.query, nil)
 		route := chi.NewRouteContext()
@@ -52,5 +58,15 @@ func TestPolishWindowConfigurationIsValidatedAndPreserved(t *testing.T) {
 	_ = json.Unmarshal([]byte(raw), &cfg)
 	if enabled || interval != 90 || cfg["run_start_time"] != "11:00" || cfg["run_end_time"] != "12:30" || cfg["existing_option"] != float64(42) {
 		t.Fatalf("unexpected config: %s enabled=%v interval=%d", raw, enabled, interval)
+	}
+	var backupRaw string
+	var backupInterval int
+	if err := db.QueryRow(`SELECT data,interval_seconds FROM scheduled_tasks WHERE task_code='db_backup'`).Scan(&backupRaw, &backupInterval); err != nil {
+		t.Fatal(err)
+	}
+	var backupCfg map[string]any
+	_ = json.Unmarshal([]byte(backupRaw), &backupCfg)
+	if backupInterval != 1800 || backupCfg["retention_days"] != float64(7) {
+		t.Fatalf("unexpected db_backup config: %s interval=%d", backupRaw, backupInterval)
 	}
 }

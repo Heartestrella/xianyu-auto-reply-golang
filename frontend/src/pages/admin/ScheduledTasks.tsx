@@ -23,6 +23,7 @@ export function ScheduledTasks() {
   // 编辑状态
   const [editingTask, setEditingTask] = useState<string | null>(null)
   const [editInterval, setEditInterval] = useState<number>(0)
+  const [editRetention, setEditRetention] = useState<number>(7)
   const [editStart, setEditStart] = useState('00:00')
   const [editEnd, setEditEnd] = useState('23:59')
   const [updating, setUpdating] = useState<string | null>(null)
@@ -87,6 +88,7 @@ export function ScheduledTasks() {
   const handleStartEdit = (task: ScheduledTask) => {
     setEditingTask(task.task_code)
     setEditInterval(task.interval_seconds)
+    setEditRetention(task.retention_days ?? 7)
     setEditStart(task.run_start_time || '00:00')
     setEditEnd(task.run_end_time || '23:59')
   }
@@ -108,9 +110,17 @@ export function ScheduledTasks() {
       addToast({ type: 'error', message: '请选择同一天内有效的开始和结束时间' })
       return
     }
+    if (taskCode === 'db_backup' && (!Number.isInteger(editRetention) || editRetention < 1 || editRetention > 365)) {
+      addToast({ type: 'error', message: '备份保留天数应为 1 到 365 的整数' })
+      return
+    }
     setUpdating(taskCode)
     try {
-      const result = await updateScheduledTask(taskCode, { interval_seconds: editInterval, ...(taskCode === 'polish' ? { run_start_time: editStart, run_end_time: editEnd } : {}) })
+      const result = await updateScheduledTask(taskCode, {
+        interval_seconds: editInterval,
+        ...(taskCode === 'polish' ? { run_start_time: editStart, run_end_time: editEnd } : {}),
+        ...(taskCode === 'db_backup' ? { retention_days: editRetention } : {}),
+      })
       if (result.success) {
         addToast({ type: 'success', message: result.message })
         setEditingTask(null)
@@ -165,6 +175,7 @@ export function ScheduledTasks() {
                 <th>任务名称</th>
                 <th>任务代码</th>
                 <th>执行间隔</th>
+                <th>备份保留</th>
                 <th>每日执行时段</th>
                 <th>启用状态</th>
                 <th>描述</th>
@@ -174,7 +185,7 @@ export function ScheduledTasks() {
             <tbody>
               {tasks.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-8 text-slate-500 dark:text-slate-400">
+                  <td colSpan={8} className="text-center py-8 text-slate-500 dark:text-slate-400">
                     <div className="flex flex-col items-center gap-2">
                       <Clock className="w-12 h-12 text-slate-300 dark:text-slate-600" />
                       <p>暂无定时任务</p>
@@ -233,6 +244,30 @@ export function ScheduledTasks() {
                             <Edit2 className="w-3.5 h-3.5 text-slate-400" />
                           </button>
                         </div>
+                      )}
+                    </td>
+                    <td>
+                      {task.task_code === 'db_backup' ? (
+                        editingTask === task.task_code ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="1"
+                              max="365"
+                              value={editRetention}
+                              onChange={(e) => setEditRetention(Number(e.target.value))}
+                              className="w-20 px-2 py-1 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-sm"
+                            />
+                            <span className="text-sm text-slate-500">天</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <span className="font-medium">{task.retention_days ?? 7}</span>
+                            <span className="text-sm text-slate-500">天</span>
+                          </div>
+                        )
+                      ) : (
+                        <span className="text-slate-400">-</span>
                       )}
                     </td>
                     <td>

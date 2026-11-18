@@ -49,6 +49,18 @@ func (s *Server) updateScheduledTaskConfig(w http.ResponseWriter, r *http.Reques
 			return
 		}
 	}
+	if query.Has("retention_days") {
+		if code != "db_backup" {
+			fail(w, 400, "仅数据库备份任务支持保留天数")
+			return
+		}
+		days, err := strconv.Atoi(query.Get("retention_days"))
+		if err != nil || days < 1 || days > 365 {
+			fail(w, 400, "备份保留天数必须为1到365之间的整数")
+			return
+		}
+		cfg["retention_days"] = days
+	}
 	if query.Has("run_start_time") || query.Has("run_end_time") {
 		if code != "polish" {
 			fail(w, 400, "仅擦亮任务支持每日执行时段")

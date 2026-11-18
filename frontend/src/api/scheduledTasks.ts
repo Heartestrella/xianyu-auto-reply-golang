@@ -20,6 +20,8 @@ export interface ScheduledTask {
   time_zone?: string
   interval_seconds: number
   enabled: boolean
+  /** 备份保留天数（仅 db_backup 任务返回，默认 7） */
+  retention_days?: number
   description: string | null
   task_running: boolean
   created_at: string | null
@@ -39,6 +41,8 @@ export interface UpdateScheduledTaskParams {
   run_end_time?: string
   interval_seconds?: number
   enabled?: boolean
+  /** 备份保留天数（仅 db_backup 任务支持，1~365） */
+  retention_days?: number
 }
 
 /** 更新定时任务响应 */
@@ -73,6 +77,7 @@ export async function updateScheduledTask(
   }
   if (params.run_start_time !== undefined) query.set('run_start_time', params.run_start_time)
   if (params.run_end_time !== undefined) query.set('run_end_time', params.run_end_time)
+  if (params.retention_days !== undefined) query.set('retention_days', String(params.retention_days))
   return put<UpdateScheduledTaskResponse>(`${ADMIN_PREFIX}/scheduled-tasks/${taskCode}?${query.toString()}`)
 }
 
