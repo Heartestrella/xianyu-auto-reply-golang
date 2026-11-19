@@ -119,6 +119,7 @@ func (s *Server) fetchItemsAll(w http.ResponseWriter, r *http.Request) {
 	}
 	write(w, 200, map[string]any{"success": len(failed) == 0, "message": msg, "total_count": total, "saved_count": saved, "account_count": len(accounts), "success_account_count": success, "failed_account_count": len(failed), "failed_accounts": failed})
 }
+
 // saveCatalogItem upserts a fetched item into xy_catalog_items and returns the mapped item on success.
 func (s *Server) saveCatalogItem(r *http.Request, a platformAccount, mapped map[string]any) bool {
 	b, _ := json.Marshal(mapped)
@@ -134,7 +135,7 @@ func (s *Server) updateAccountCookie(r *http.Request, a platformAccount, result 
 }
 
 func (s *Server) fetchSellerItems(r *http.Request, a platformAccount, page int) ([]map[string]any, bool, error) {
-	result := xianyu.MTOPCall(r.Context(), xianyu.MTOPOptions{API: "mtop.alibaba.idle.seller.pc.common.item.search", Version: "1.0", Cookie: a.Cookie, Proxy: accountProxy(a), Origin: "https://seller.goofish.com", Referer: "https://seller.goofish.com/?site=COMMONPRO", Data: map[string]any{"pageNo": page, "pageSize": 30, "bizType": "commonPro", "searchRequest": "{}", "itemStatus": "0"}, ExtraParams: map[string]string{"spm_cnt": "a21107h.42826273.0.0", "needLoginPC": "true", "accountSite": "xianyu"}, ExtraHeaders: map[string]string{"idle_site_biz_code": "COMMONPRO", "idle_user_group_member_id": ""}})
+	result := xianyu.MTOPCall(r.Context(), xianyu.MTOPOptions{API: "mtop.alibaba.idle.seller.pc.common.item.search", Version: "1.0", Cookie: a.Cookie, Proxy: accountProxy(a), Origin: "https://seller.goofish.com", Referer: "https://seller.goofish.com/?site=COMMONPRO", Data: map[string]any{"pageNo": page, "pageSize": xianyu.ItemPageSize, "bizType": "commonPro", "searchRequest": "{}", "itemStatus": "0"}, ExtraParams: map[string]string{"spm_cnt": "a21107h.42826273.0.0", "needLoginPC": "true", "accountSite": "xianyu"}, ExtraHeaders: map[string]string{"idle_site_biz_code": "COMMONPRO", "idle_user_group_member_id": ""}})
 	s.updateAccountCookie(r, a, result)
 	if !result.Success {
 		// 普通个人账号（未开通鱼小铺）无权访问卖家专业版接口。错误码来源：闲鱼服务端
@@ -173,11 +174,20 @@ func (s *Server) fetchPersonalItems(r *http.Request, a platformAccount, page int
 	result := xianyu.MTOPCall(r.Context(), xianyu.MTOPOptions{
 		API: "mtop.idle.web.xyh.item.list", Version: "1.0", Cookie: a.Cookie, Proxy: accountProxy(a),
 		Origin: "https://www.goofish.com", Referer: "https://www.goofish.com/",
-		Data: map[string]any{"needGroupInfo": false, "pageNumber": page, "pageSize": 30, "groupName": "在售", "defaultGroup": true, "userId": a.AccountID},
-		ExtraParams: map[string]string{"spm_cnt": "a21ybx.im.0.0"},
+		Data:        xianyu.PersonalItemListData(page, xianyu.AccountUserID(a.Cookie, a.AccountID)),
+		ExtraParams: xianyu.PersonalItemListParams(),
 	})
 	s.updateAccountCookie(r, a, result)
 	if !result.Success {
+		// 第 1 页就报"每页最大可查看条数/最大可查看页数超限"说明请求参数仍不合规，
+		// 直接给出可读原因；后续页报同一错误则是该账号已达到接口可查看页数上限，
+		// 按"没有更多数据"正常结束，避免整账号同步被判失败。
+		if xianyu.PersonalItemPageLimitError(result.Error) {
+			if page > 1 {
+				return nil, false, nil
+			}
+			return nil, false, fmt.Errorf("获取商品失败(个人版): 分页参数超出接口限制（每页最多 %d 条、可查看页数有上限）: %s", xianyu.ItemPageSize, result.Error)
+		}
 		return nil, false, fmt.Errorf("获取商品失败(个人版): %s", result.Error)
 	}
 	data := nestedMap(result.Response, "data")
@@ -217,7 +227,7 @@ func (s *Server) fetchPersonalItems(r *http.Request, a platformAccount, page int
 			out = append(out, mapped)
 		}
 	}
-	more := len(out) == 30
+	more := xianyu.PageHasMore(len(cards))
 	return out, more, nil
 }
 func nestedMap(root map[string]any, keys ...string) map[string]any {
