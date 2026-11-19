@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -26,6 +27,32 @@ type MTOPResult struct {
 
 var tokenExpired = []string{"FAIL_SYS_TOKEN_EXOIRED", "FAIL_SYS_TOKEN_EXPIRED", "FAIL_SYS_TOKEN_EMPTY", "令牌过期", "令牌为空"}
 var accountInvalid = []string{"FAIL_SYS_SESSION_EXPIRED", "FAIL_SYS_USER_VALIDATE", "RGV587", "FAIL_SYS_ILLEGAL_ACCESS", "FAIL_BIZ_WUA_IS_MACHINE", "WUA_IS_MACHINE", "挤爆", "punish", "captcha", "validate"}
+
+// SliderSolver 是自动过滑块引擎的抽象，由上层（captcha 包）注入实现。
+//
+// 返回的 cookies 只需包含 x5* 系列且必须含 x5sec，MTOPCall 会把它合并进
+// 当前 Cookie 后自动重试原请求。
+type SliderSolver interface {
+	Solve(ctx context.Context, punishURL, cookie string) (map[string]string, error)
+}
+
+var (
+	sliderSolverMu sync.RWMutex
+	sliderSolver   SliderSolver
+)
+
+// SetSliderSolver 注册（或清空）自动过滑块引擎。
+func SetSliderSolver(s SliderSolver) {
+	sliderSolverMu.Lock()
+	sliderSolver = s
+	sliderSolverMu.Unlock()
+}
+
+func currentSliderSolver() SliderSolver {
+	sliderSolverMu.RLock()
+	defer sliderSolverMu.RUnlock()
+	return sliderSolver
+}
 
 func MTOPCall(ctx context.Context, opt MTOPOptions) MTOPResult {
 	if opt.Version == "" {
@@ -48,8 +75,9 @@ func MTOPCall(ctx context.Context, opt MTOPOptions) MTOPResult {
 	}
 	cookie := opt.Cookie
 	var last string
+	solvedPunish := 0
 	endpoint := fmt.Sprintf("https://h5api.m.goofish.com/h5/%s/%s/", opt.API, opt.Version)
-	for attempt := 0; attempt < 3; attempt++ {
+	for attempt := 0; attempt < 5; attempt++ {
 		raw, _ := json.Marshal(opt.Data)
 		data := string(raw)
 		ts := fmt.Sprint(time.Now().UnixMilli())
@@ -123,7 +151,23 @@ func MTOPCall(ctx context.Context, opt MTOPOptions) MTOPResult {
 			continue
 		}
 		if containsAny(ret, accountInvalid) {
-			return MTOPResult{AccountInvalid: true, Response: out, Error: ret, Cookie: cookie, PunishURL: punishURL(out)}
+			pURL := punishURL(out)
+			// 风控返回 punish 验证链接时尝试本地自动过滑块（与父仓库编排一致：
+			// 求解成功拿到新的 x5sec 后，合并 Cookie 并自动重试原请求）。
+			// 链接过期（URLEXpiredError）视为本次求解失败，由上层重取链接。
+			if pURL != "" && solvedPunish < 2 {
+				if solver := currentSliderSolver(); solver != nil {
+					if updates, solveErr := solver.Solve(ctx, pURL, cookie); solveErr == nil && len(updates) > 0 {
+						cookie = mergeCookies(cookie, updates)
+						solvedPunish++
+						last = "punish(" + pURL + ") 已自动过滑块，重试请求"
+						continue
+					} else if solveErr != nil {
+						last = "自动过滑块失败: " + solveErr.Error()
+					}
+				}
+			}
+			return MTOPResult{AccountInvalid: true, Response: out, Error: ret, Cookie: cookie, PunishURL: pURL}
 		}
 		return MTOPResult{Response: out, Error: ret, Cookie: cookie}
 	}

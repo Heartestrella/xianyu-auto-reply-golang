@@ -79,7 +79,7 @@ func TestConnectionDeviceAndTokenReuse(t *testing.T) {
 func TestVerificationFailureClassification(t *testing.T) {
 	for message, want := range map[string]string{
 		"FAIL_SYS_USER_VALIDATE,RGV587_ERROR::SM::哎哟喂,被挤爆啦": "platform_verification_required",
-		"FAIL_SYS_SESSION_EXPIRED": "session_expired", "Cookie缺少unb": "invalid_cookie",
+		"FAIL_SYS_SESSION_EXPIRED":                          "session_expired", "Cookie缺少unb": "invalid_cookie",
 		"FAIL_SYS_TOKEN_EXPIRED": "token_expired", "network timeout": "connection_failed",
 	} {
 		if got := ConnectionFailureReason(errors.New(message)); got != want {

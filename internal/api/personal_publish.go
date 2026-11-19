@@ -87,16 +87,16 @@ func buildPersonalPublishPayload(ctx context.Context, item map[string]any, accou
 	}
 	payload := map[string]any{
 		"freebies": false, "itemTypeStr": "b", "quantity": "1", "simpleItem": "true",
-		"imageInfoDOList": imageItems,
-		"itemTextDTO":     map[string]any{"desc": description, "title": title, "titleDescSeparate": true},
-		"itemLabelExtList": buildPublishLabels(item),
-		"itemPriceDTO":    map[string]any{"origPriceInCent": orig, "priceInCent": price},
+		"imageInfoDOList":     imageItems,
+		"itemTextDTO":         map[string]any{"desc": description, "title": title, "titleDescSeparate": true},
+		"itemLabelExtList":    buildPublishLabels(item),
+		"itemPriceDTO":        map[string]any{"origPriceInCent": orig, "priceInCent": price},
 		"userRightsProtocols": []map[string]any{},
-		"itemPostFeeDTO":  postFee, "itemAddrDTO": address,
+		"itemPostFeeDTO":      postFee, "itemAddrDTO": address,
 		"defaultPrice": false,
-		"itemCatDTO": map[string]any{"catId": textValue(item["platform_category_id"]), "catName": textValue(item["platform_category_name"]), "channelCatId": textValue(item["platform_channel_category_id"]), "tbCatId": textValue(item["platform_tb_category_id"])},
-		"uniqueCode":  fmt.Sprintf("%d%s", time.Now().UnixMilli(), lastFour(strings.TrimSpace(account.AccountID))),
-		"sourceId":    "pcMainPublish", "bizcode": "pcMainPublish", "publishScene": "pcMainPublish",
+		"itemCatDTO":   map[string]any{"catId": textValue(item["platform_category_id"]), "catName": textValue(item["platform_category_name"]), "channelCatId": textValue(item["platform_channel_category_id"]), "tbCatId": textValue(item["platform_tb_category_id"])},
+		"uniqueCode":   fmt.Sprintf("%d%s", time.Now().UnixMilli(), lastFour(strings.TrimSpace(account.AccountID))),
+		"sourceId":     "pcMainPublish", "bizcode": "pcMainPublish", "publishScene": "pcMainPublish",
 	}
 	return payload, account.Cookie, nil
 }

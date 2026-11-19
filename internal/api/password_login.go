@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/zhinianboke/xianyu-auto-go/internal/captcha"
 	"github.com/zhinianboke/xianyu-auto-go/internal/proxy"
 	"github.com/zhinianboke/xianyu-auto-go/internal/xianyu"
 )
@@ -101,7 +102,7 @@ func (s *Server) startScheduledPasswordLogin(owner int64, accountID, username, p
 		}
 	}
 	id := "scheduled_" + randomHex(16)
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	session := &passwordLoginSession{OwnerID: owner, AccountID: accountID, Account: username, Password: password, ShowBrowser: show, Status: "processing", Message: "定时登录续期处理中", Created: time.Now(), Cancel: cancel}
 	s.passwordLogins[id] = session
 	s.passwordMu.Unlock()
@@ -151,7 +152,7 @@ func (s *Server) passwordLoginStart(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	id := "pl_" + randomHex(16)
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	session := &passwordLoginSession{OwnerID: u.ID, AccountID: p.AccountID, Account: p.Account, Password: p.Password, ShowBrowser: p.ShowBrowser, Status: "processing", Message: "登录处理中，请稍候...", Created: time.Now(), Cancel: cancel}
 	s.passwordLogins[id] = session
 	s.passwordMu.Unlock()
@@ -239,7 +240,7 @@ func (s *Server) runPasswordLogin(ctx context.Context, id string, x *passwordLog
 		switch branch {
 		case "slider":
 			s.setPasswordState(id, "processing", fmt.Sprintf("正在处理登录滑块（第 %d/3 次）", attempt+1), "", "")
-			solved, solveErr := s.solvePasswordSlider(ctx, verify)
+			solved, solveErr := s.solvePasswordSlider(ctx, verify, jarCookieString(jar))
 			if solveErr != nil {
 				s.setPasswordState(id, "verification_required", "需要完成安全验证", solveErr.Error(), verify)
 				return
@@ -252,7 +253,41 @@ func (s *Server) runPasswordLogin(ctx context.Context, id string, x *passwordLog
 			jar.SetCookies(u, extra)
 			continue
 		case "face":
-			s.setPasswordState(id, "verification_required", "需要完成人脸验证", "", verify)
+			s.setPasswordState(id, "verification_required", "需要完成人脸验证，请使用手机闲鱼扫码完成刷脸", "", verify)
+			onQR := func(dataURL string) {
+				s.passwordMu.Lock()
+				if live := s.passwordLogins[id]; live != nil {
+					live.FaceQRURL = dataURL
+					live.Status = "verification_required"
+					live.Message = "请使用手机闲鱼扫描二维码完成人脸验证"
+				}
+				s.passwordMu.Unlock()
+			}
+			face, faceErr := runFaceFlow(ctx, client, jar, verify, onQR, func() bool { return ctx.Err() == nil })
+			if faceErr != nil {
+				s.setPasswordState(id, "failed", "", faceErr.Error(), verify)
+				return
+			}
+			cookieString := jarCookieString(jar)
+			if cookieString == "" {
+				cookieString = joinCookies(face.Cookies)
+			}
+			isNew, saveErr := s.savePasswordLogin(ctx, x, cookieString, face.UNB)
+			if saveErr != nil {
+				s.setPasswordState(id, "failed", "", saveErr.Error(), "")
+				return
+			}
+			s.passwordMu.Lock()
+			if live := s.passwordLogins[id]; live != nil {
+				live.IsNew = &isNew
+				live.FaceQRURL = ""
+			}
+			s.passwordMu.Unlock()
+			msg := "账号登录成功（人脸验证）"
+			if isNew {
+				msg = "新账号登录成功（人脸验证）"
+			}
+			s.setPasswordState(id, "success", msg, "", "")
 			return
 		case "fail":
 			s.setPasswordState(id, "failed", "", message, "")
@@ -357,12 +392,34 @@ func classifyPasswordLogin(body map[string]any) (string, string, string) {
 	return "unknown", "", ""
 }
 
-func (s *Server) solvePasswordSlider(ctx context.Context, punish string) (map[string]string, error) {
+func (s *Server) solvePasswordSlider(ctx context.Context, punish, cookie string) (map[string]string, error) {
+	// 1. 优先走远程打码接口（与父仓库编排优先级一致）。
+	if cookies, err := s.solvePasswordSliderRemote(ctx, punish); err == nil && cookies["x5sec"] != "" {
+		return cookies, nil
+	} else if err != nil && !errors.Is(err, errRemoteNotConfigured) {
+		// 远程有返回但未通过（非超时）：按父仓库策略不回退本机。
+		return nil, err
+	}
+	// 2. 远程未配置时回退本地纯 Go 滑块引擎。
+	cfg := s.localSliderConfigFor(ctx)
+	if !cfg.Enabled {
+		return nil, errors.New("未配置协议登录远程接口，且本地自动过滑块未启用")
+	}
+	result, err := captcha.NewSolver(cfg).Solve(ctx, punish, cookie)
+	if err != nil {
+		return nil, fmt.Errorf("本机过滑块失败: %w", err)
+	}
+	return result.Cookies, nil
+}
+
+var errRemoteNotConfigured = errors.New("未配置协议登录远程接口")
+
+func (s *Server) solvePasswordSliderRemote(ctx context.Context, punish string) (map[string]string, error) {
 	var endpoint, key string
 	_ = s.db.QueryRowContext(ctx, `SELECT value FROM system_settings WHERE key='password_login.remote_url'`).Scan(&endpoint)
 	_ = s.db.QueryRowContext(ctx, `SELECT value FROM system_settings WHERE key='password_login.remote_secret_key'`).Scan(&key)
 	if strings.TrimSpace(endpoint) == "" || strings.TrimSpace(key) == "" {
-		return nil, errors.New("未配置协议登录远程接口，无法过滑块")
+		return nil, errRemoteNotConfigured
 	}
 	raw, _ := json.Marshal(map[string]any{"type": "x5sec_ali", "data": map[string]any{"url": punish}})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(string(raw)))
@@ -394,6 +451,14 @@ func (s *Server) solvePasswordSlider(ctx context.Context, punish string) (map[st
 		return nil, errors.New("远程接口返回成功但缺少 x5sec")
 	}
 	return cookies, nil
+}
+
+func joinCookies(cookies map[string]string) string {
+	parts := make([]string, 0, len(cookies))
+	for k, v := range cookies {
+		parts = append(parts, k+"="+v)
+	}
+	return strings.Join(parts, "; ")
 }
 
 func jarCookieString(j *cookiejar.Jar) string {

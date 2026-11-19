@@ -68,7 +68,10 @@ type User struct {
 }
 
 func New(db *sql.DB, cfg config.Config, log *slog.Logger) *Server {
-	return &Server{db: db, cfg: cfg, log: log, ws: NewHub(), crawlJobs: map[int64]context.CancelFunc{}, crawlTokens: map[int64]string{}, qrLogin: newQRLoginManager(), geetestStatus: map[string]geetestState{}, passwordLogins: map[string]*passwordLoginSession{}}
+	s := &Server{db: db, cfg: cfg, log: log, ws: NewHub(), crawlJobs: map[int64]context.CancelFunc{}, crawlTokens: map[int64]string{}, qrLogin: newQRLoginManager(), geetestStatus: map[string]geetestState{}, passwordLogins: map[string]*passwordLoginSession{}}
+	// 注册本地滑块求解器，使所有 MTOP 调用在遇到 punish 风控页时自动过滑块。
+	s.registerLocalSliderSolver()
+	return s
 }
 func (s *Server) SetOnlineChecker(fn func(string) bool) { s.online = fn }
 func (s *Server) SetScheduler(trigger func(context.Context, string) error, running func(string) bool) {

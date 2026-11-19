@@ -34,6 +34,9 @@ func (s *Server) registerRiskRoutes(r chi.Router) {
 	r.Get("/risk-control-logs/local-slider-config", s.localSliderConfig)
 	r.Put("/risk-control-logs/local-slider-config", s.localSliderConfigUpdate)
 	r.Post("/captcha/slider-solve/test", s.remoteSliderTest)
+	r.Get("/captcha/local-config", s.localSliderConfigView)
+	r.Put("/captcha/local-config", s.localSliderConfigSave)
+	r.Post("/captcha/local-solve", s.localSliderSolve)
 	r.Get("/captcha/remote-config", s.remoteCaptchaConfig)
 	r.Put("/captcha/remote-config", s.remoteCaptchaConfigUpdate)
 }

@@ -14,7 +14,13 @@ COPY internal ./internal
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/xianyu-go ./cmd/server
 
 FROM alpine:3.22
-RUN apk add --no-cache ca-certificates tzdata && addgroup -S app && adduser -S -G app app
+# 本地自动过滑块需要容器内 Chromium：
+#   构建时加 --build-arg WITH_CHROMIUM=true 即可内置（镜像会增大数百 MB）。
+# 未内置时仍可挂载宿主机 Chrome，并通过 captcha.local_slider_chrome_path 指向。
+ARG WITH_CHROMIUM=false
+RUN apk add --no-cache ca-certificates tzdata \
+    && if [ "$WITH_CHROMIUM" = "true" ]; then apk add --no-cache chromium nss freetype harfbuzz ttf-freefont; fi \
+    && addgroup -S app && adduser -S -G app app
 WORKDIR /app
 COPY --from=backend /out/xianyu-go ./xianyu-go
 COPY --from=frontend /src/frontend/dist ./frontend/dist
