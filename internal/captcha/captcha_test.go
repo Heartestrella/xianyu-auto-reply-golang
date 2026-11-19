@@ -50,9 +50,16 @@ func TestScratchDistanceRange(t *testing.T) {
 func TestMergeCookies(t *testing.T) {
 	base := "unb=123; _m_h5_tk=abc_1; cookie2=xyz"
 	merged := MergeCookies(base, map[string]string{"x5sec": "new", "bx-pp": "pp"})
-	want := "unb=123; _m_h5_tk=abc_1; cookie2=xyz; x5sec=new; bx-pp=pp"
+	// 原有 Cookie 的键顺序必须保留；新增键按字典序追加，结果可复现。
+	want := "unb=123; _m_h5_tk=abc_1; cookie2=xyz; bx-pp=pp; x5sec=new"
 	if merged != want {
 		t.Fatalf("合并结果不符合预期:\n got=%s\nwant=%s", merged, want)
+	}
+	// 重复调用必须得到完全一致的结果（map 迭代顺序随机不应影响输出）。
+	for i := 0; i < 20; i++ {
+		if again := MergeCookies(base, map[string]string{"x5sec": "new", "bx-pp": "pp"}); again != want {
+			t.Fatalf("第 %d 次合并结果不稳定:\n got=%s\nwant=%s", i+1, again, want)
+		}
 	}
 	// 覆盖已有 x5sec 时应保留顺序并更新值。
 	merged = MergeCookies("x5sec=old; unb=1", map[string]string{"x5sec": "fresh"})

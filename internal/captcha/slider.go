@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"sort"
 	"strings"
 	"time"
 )
@@ -751,11 +752,17 @@ func MergeCookies(raw string, updates map[string]string) string {
 			parts = append(parts, name+"="+v)
 		}
 	}
-	for name, v := range existing {
-		if seen[name] {
-			continue
+	// 原 Cookie 中没有的键（新增的 x5* 等）按字典序输出，避免 map 迭代顺序
+	// 随机导致合并结果不可复现（同一份 Cookie 每次拼接顺序都不同）。
+	extra := make([]string, 0, len(existing))
+	for name := range existing {
+		if !seen[name] {
+			extra = append(extra, name)
 		}
-		parts = append(parts, name+"="+v)
+	}
+	sort.Strings(extra)
+	for _, name := range extra {
+		parts = append(parts, name+"="+existing[name])
 	}
 	return strings.Join(parts, "; ")
 }
