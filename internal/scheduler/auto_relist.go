@@ -10,8 +10,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
-	"github.com/zhinianboke/xianyu-auto-go/internal/xianyu"
 )
 
 type relistEvent struct {
@@ -69,7 +67,17 @@ func positiveInt(value any, fallback int) int {
 func (e *Engine) discoverRelistEvents(ctx context.Context) error {
 	// delivery_content/card_only_delivered are kept inside the compatibility JSON.
 	// The predicates mirror the original service and deliberately reject merely
-	// paid orders so a relist can never race normal delivery.
+	// paid orders so a relist can never race normal delivery.  Each rule only
+	// surfaces the earliest eligible order per scan; a rule that already has an
+	// unfinished event for the watched item is skipped so several orders for the
+	// same item cannot trigger concurrent reposts.
+	eligible := `trim(COALESCE(json_extract(%s.data,'$.delivery_content'),json_extract(%s.data,'$.deliveryContent'),''))<>''
+		  AND ((lower(%s.status) IN ('shipped','completed','已发货','已完成') AND lower(COALESCE(%s.delivery_method,''))='auto')
+		    OR (COALESCE(json_extract(%s.data,'$.card_only_delivered'),json_extract(%s.data,'$.cardOnlyDelivered'),0)=1
+		      AND lower(COALESCE(%s.delivery_method,'')) IN ('auto','scheduled')
+		      AND lower(%s.status) NOT IN ('cancelled','refunded','refunding','已取消','已退款','退款中')))`
+	orderCondition := fmt.Sprintf(eligible, "o", "o", "o", "o", "o", "o", "o", "o")
+	cursorCondition := fmt.Sprintf(eligible, "o2", "o2", "o2", "o2", "o2", "o2", "o2", "o2")
 	_, err := e.db.ExecContext(ctx, `
 		INSERT OR IGNORE INTO xy_auto_relist_events
 		(user_id,rule_id,material_id,account_id,order_no,old_item_id,status,next_retry_at,publish_request_id,publish_state)
@@ -78,12 +86,14 @@ func (e *Engine) discoverRelistEvents(ctx context.Context) error {
 		       'auto-relist:'||r.id||':'||lower(hex(randomblob(16))),'not_started'
 		FROM xy_auto_relist_rules r JOIN xy_orders o
 		  ON o.owner_id=r.user_id AND o.account_id=r.account_id AND o.item_id=r.current_item_id
-		WHERE r.enabled=1 AND r.status NOT IN ('paused','disabled')
-		  AND trim(COALESCE(json_extract(o.data,'$.delivery_content'),json_extract(o.data,'$.deliveryContent'),''))<>''
-		  AND ((lower(o.status) IN ('shipped','completed','已发货','已完成') AND lower(COALESCE(o.delivery_method,''))='auto')
-		    OR (COALESCE(json_extract(o.data,'$.card_only_delivered'),json_extract(o.data,'$.cardOnlyDelivered'),0)=1
-		      AND lower(COALESCE(o.delivery_method,'')) IN ('auto','scheduled')
-		      AND lower(o.status) NOT IN ('cancelled','refunded','refunding','已取消','已退款','退款中')))`)
+		WHERE r.enabled=1 AND r.status NOT IN ('paused','disabled','error')
+		  AND NOT EXISTS(SELECT 1 FROM xy_auto_relist_events ev WHERE ev.rule_id=r.id AND ev.old_item_id=r.current_item_id
+		    AND ev.status IN ('pending','claimed','checking','publishing','retry','migration_retry','unknown','reconciling'))
+		  AND `+orderCondition+`
+		  AND o.id=(SELECT o2.id FROM xy_orders o2
+		            WHERE o2.owner_id=r.user_id AND o2.account_id=r.account_id AND o2.item_id=r.current_item_id
+		              AND `+cursorCondition+`
+		            ORDER BY o2.updated_at ASC, o2.id ASC LIMIT 1)`)
 	if err != nil {
 		return err
 	}
@@ -145,7 +155,7 @@ func (e *Engine) processRelistEvent(ctx context.Context, id int64, leaseSeconds,
 		return e.retryRelist(ctx, ev, token, maxRetries, fmt.Errorf("确认旧商品状态: %w", err))
 	}
 	if live {
-		return e.finishRelistEvent(ctx, ev, token, "skipped", "旧商品仍在售，无需续售", "", false)
+		return e.deferRelistWhileLive(ctx, ev, token)
 	}
 	ev.Attempt++
 	requestID := relistRequestID(ev.RuleID, ev.OrderNo, ev.OldItemID)
@@ -195,19 +205,19 @@ func (e *Engine) relistItemLive(ctx context.Context, ownerID int64, accountID, i
 	if err != nil {
 		return false, err
 	}
+	// Reuse the regular catalog pager so personal accounts (without a fish shop)
+	// fall back to the personal item list API instead of failing on the seller
+	// pro endpoint being unauthorized.
 	for page := 1; page <= 200; page++ {
-		res := xianyu.MTOPCall(ctx, xianyu.MTOPOptions{API: "mtop.alibaba.idle.seller.pc.common.item.search", Version: "1.0", Cookie: a.Cookie, Proxy: syncProxy(a), Origin: "https://seller.goofish.com", Referer: "https://seller.goofish.com/?site=COMMONPRO", Data: map[string]any{"pageNo": page, "pageSize": xianyu.ItemPageSize, "bizType": "commonPro", "searchRequest": "{}", "itemStatus": "0"}, ExtraParams: map[string]string{"needLoginPC": "true", "accountSite": "xianyu"}, ExtraHeaders: map[string]string{"idle_site_biz_code": "COMMONPRO"}})
-		if !res.Success {
-			return false, errors.New(res.Error)
+		items, more, err := e.fetchSellerItemsPage(ctx, a, page)
+		if err != nil {
+			return false, err
 		}
-		biz := syncNested(res.Response, "data", "data")
-		items, _ := biz["itemSearchResponseList"].([]any)
 		for _, raw := range items {
-			if item, ok := raw.(map[string]any); ok && strings.TrimSpace(fmt.Sprint(item["itemId"])) == itemID {
+			if strings.TrimSpace(fmt.Sprint(raw["item_id"])) == itemID {
 				return true, nil
 			}
 		}
-		more, _ := biz["hasNextPage"].(bool)
 		if !more {
 			return false, nil
 		}
@@ -218,6 +228,16 @@ func (e *Engine) relistItemLive(ctx context.Context, ownerID int64, accountID, i
 func relistRequestID(ruleID int64, orderNo, oldItemID string) string {
 	sum := sha256.Sum256([]byte(orderNo + "\x00" + oldItemID))
 	return fmt.Sprintf("auto-relist:%d:%s", ruleID, hex.EncodeToString(sum[:16]))
+}
+
+// deferRelistWhileLive 旧商品尚未真正下架时，把事件暂缓回 pending 并在等待期后
+// 再次确认；不消耗重试次数，规则置 waiting，避免把仍在售的商品重复上架。
+func (e *Engine) deferRelistWhileLive(ctx context.Context, ev relistEvent, token string) error {
+	const delaySeconds = 60
+	next := time.Now().Add(time.Duration(delaySeconds) * time.Second).Format("2006-01-02 15:04:05")
+	_, _ = e.db.ExecContext(ctx, `UPDATE xy_auto_relist_events SET status='pending',next_retry_at=?,error_message='旧商品仍在售，等待下一次确认',claim_token=NULL,claimed_at=NULL,lease_expires_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=? AND claim_token=?`, next, ev.ID, token)
+	_, _ = e.db.ExecContext(ctx, `UPDATE xy_auto_relist_rules SET status='waiting',next_retry_at=?,last_error=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=? AND current_item_id=?`, next, ev.RuleID, ev.OldItemID)
+	return nil
 }
 
 func (e *Engine) retryRelist(ctx context.Context, ev relistEvent, token string, maxRetries int, cause error) error {

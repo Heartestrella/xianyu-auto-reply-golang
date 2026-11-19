@@ -240,14 +240,14 @@ export function AutoRelistModal({ material, onClose, onSaved }: Props) {
     <div className="modal-overlay z-50">
       <div className="modal-content max-w-2xl max-h-[92vh] flex flex-col">
         <div className="modal-header flex-shrink-0">
-          <div><h2 className="modal-title">自动续售</h2><p className="mt-1 max-w-lg truncate text-xs text-slate-500" title={material.title}>{material.title}</p></div>
+          <div><h2 className="modal-title">自动续售 <span className="badge-info ml-1 inline-block px-1.5 py-0.5 align-middle text-xs rounded-full">Beta</span></h2><p className="mt-1 max-w-lg truncate text-xs text-slate-500" title={material.title}>{material.title}</p></div>
           <button type="button" className="modal-close" title="关闭" onClick={onClose}><X className="w-5 h-5" /></button>
         </div>
         <div className="modal-body overflow-y-auto space-y-4">
           {loading ? <div className="flex items-center justify-center py-16 text-slate-500"><Loader2 className="mr-2 h-5 w-5 animate-spin" />加载配置中</div> : <>
             {!canConfigure && <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">当前为管理员只读视图，仅素材所有者可以配置自动续售。</div>}
             {canConfigure && <label className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50/60 p-3 dark:border-blue-800 dark:bg-blue-950/20"><div><p className="font-medium text-slate-800 dark:text-slate-100">启用自动续售</p><p className="text-xs text-slate-500">关闭后保留配置和历史记录。</p></div><input type="checkbox" checked={enabled} onChange={event => setEnabled(event.target.checked)} className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500" /></label>}
-            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200">成交并完成发货后，系统确认旧商品已下架，再使用原素材发布新商品并继承持续配置。</div>
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200">成交并完成发货后，系统确认旧商品已下架，再使用原素材发布新商品并继承持续配置。当前为 Beta 功能，发布与继承规则可能随版本调整。</div>
             {canConfigure ? <>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="input-group"><label className="input-label">闲鱼账号</label><select className="input-ios" disabled={!enabled} value={accountId} onChange={event => { setAccountId(event.target.value); setItemId('') }}><option value="">请选择账号</option>{accounts.map(account => <option key={account.id} value={account.id}>{account.note || account.id}{account.enabled ? '' : '（已停用）'}</option>)}</select></div>
