@@ -1353,7 +1353,11 @@ func ParseIncomingMany(account string, raw []byte) []Incoming {
 						continue
 					}
 					if candidate := object(decoded); candidate != nil {
-						if incoming, ok := parseIncomingObject(account, candidate, raw); ok {
+						decodedRaw, err := json.Marshal(candidate)
+						if err != nil {
+							continue
+						}
+						if incoming, ok := parseIncomingObject(account, candidate, decodedRaw); ok {
 							result = append(result, incoming)
 						}
 					}
